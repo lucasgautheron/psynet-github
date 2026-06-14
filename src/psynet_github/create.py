@@ -74,6 +74,7 @@ def create_experiment_repository(
     repository = parse_repository(options.repository, owner=options.owner)
     target_dir = resolve_target_directory(repository, options.directory)
     command_runner = runner or run_command
+    no_github = options.no_github or options.no_git
 
     render_template(
         target_dir,
@@ -95,9 +96,7 @@ def create_experiment_repository(
         initialize_git_repository(target_dir, options.default_branch, command_runner)
         initialized_git = True
 
-    if not options.no_github:
-        if options.no_git:
-            raise CreateError("--no-git cannot be combined with GitHub creation.")
+    if not no_github:
         create_github_repository(
             repository,
             target_dir,
