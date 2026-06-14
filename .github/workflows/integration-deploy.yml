@@ -1,0 +1,310 @@
+name: Integration deploy generated experiment
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository_name:
+        description: "Disposable repository name. Defaults to psynet-github-integration-<run id>."
+        required: false
+        type: string
+      owner:
+        description: "GitHub owner/org for the disposable repository. Defaults to PSYNET_GITHUB_TEST_OWNER variable or this repo owner."
+        required: false
+        type: string
+      dns_domain:
+        description: "DNS domain used when dns_host is omitted. Defaults to PSYNET_GITHUB_TEST_DNS_DOMAIN variable."
+        required: false
+        type: string
+      dns_host:
+        description: "Full DNS host for the disposable deployment. Defaults to <repo>-debug.<dns_domain>."
+        required: false
+        type: string
+      region:
+        description: "AWS region"
+        required: true
+        default: "us-east-1"
+        type: string
+      instance_type:
+        description: "EC2 instance type"
+        required: true
+        default: "m7i.xlarge"
+        type: string
+      memory_gb:
+        description: "Provisioned disk/memory size in GB passed to Dallinger"
+        required: true
+        default: "32"
+        type: string
+      cleanup:
+        description: "Delete the disposable GitHub repo and terminate AWS resources at the end"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integration-deploy-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    name: Create repo and run generated deploy workflow
+    runs-on: ubuntu-latest
+    timeout-minutes: 420
+    env:
+      GH_TOKEN: ${{ secrets.PSYNET_GITHUB_TEST_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      AWS_DEFAULT_REGION: ${{ inputs.region }}
+      AWS_REGION: ${{ inputs.region }}
+    steps:
+      - name: Checkout psynet-github
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install psynet-github
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip wheel
+          pip install -e . boto3
+
+      - name: Validate secrets and plan integration run
+        id: plan
+        env:
+          INPUT_REPOSITORY_NAME: ${{ inputs.repository_name }}
+          INPUT_OWNER: ${{ inputs.owner }}
+          INPUT_DNS_DOMAIN: ${{ inputs.dns_domain }}
+          INPUT_DNS_HOST: ${{ inputs.dns_host }}
+          DEFAULT_OWNER: ${{ github.repository_owner }}
+          VAR_TEST_OWNER: ${{ vars.PSYNET_GITHUB_TEST_OWNER }}
+          VAR_DNS_DOMAIN: ${{ vars.PSYNET_GITHUB_TEST_DNS_DOMAIN }}
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY' >> "${GITHUB_OUTPUT}"
+          import os
+          import re
+          import sys
+
+          required_secrets = [
+              "GH_TOKEN",
+              "AWS_ACCESS_KEY_ID",
+              "AWS_SECRET_ACCESS_KEY",
+          ]
+          missing = [name for name in required_secrets if not os.environ.get(name)]
+          if missing:
+              print(f"Missing required secret(s): {', '.join(missing)}", file=sys.stderr)
+              sys.exit(2)
+
+          run_id = os.environ["GITHUB_RUN_ID"]
+          repo_name = os.environ.get("INPUT_REPOSITORY_NAME") or f"psynet-github-integration-{run_id}"
+          owner = (
+              os.environ.get("INPUT_OWNER")
+              or os.environ.get("VAR_TEST_OWNER")
+              or os.environ["DEFAULT_OWNER"]
+          )
+          dns_domain = os.environ.get("INPUT_DNS_DOMAIN") or os.environ.get("VAR_DNS_DOMAIN")
+          dns_host = os.environ.get("INPUT_DNS_HOST")
+          server_name = f"{repo_name}-debug"
+          app_name = server_name
+
+          if not dns_host:
+              if not dns_domain:
+                  print(
+                      "Provide workflow input dns_host, input dns_domain, or repository "
+                      "variable PSYNET_GITHUB_TEST_DNS_DOMAIN.",
+                      file=sys.stderr,
+                  )
+                  sys.exit(2)
+              dns_host = f"{server_name}.{dns_domain}"
+
+          patterns = {
+              "repo_name": r"[A-Za-z0-9_.-]+",
+              "owner": r"[A-Za-z0-9_.-]+",
+              "server_name": r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]",
+              "dns_host": r"[A-Za-z0-9][A-Za-z0-9.-]{1,253}[A-Za-z0-9]",
+          }
+          values = {
+              "repo_name": repo_name,
+              "owner": owner,
+              "server_name": server_name,
+              "dns_host": dns_host,
+          }
+          for key, pattern in patterns.items():
+              if not re.fullmatch(pattern, values[key]):
+                  print(f"Invalid {key}: {values[key]}", file=sys.stderr)
+                  sys.exit(2)
+
+          full_repo = f"{owner}/{repo_name}"
+          outputs = {
+              "repo_name": repo_name,
+              "owner": owner,
+              "full_repo": full_repo,
+              "server_name": server_name,
+              "app_name": app_name,
+              "dns_host": dns_host,
+              "ssh_key_name": f"{repo_name}-ec2",
+          }
+          for key, value in outputs.items():
+              print(f"{key}={value}")
+          PY
+
+      - name: Write AWS credentials file
+        run: |
+          set -euo pipefail
+          mkdir -p "${HOME}/.aws"
+          {
+            echo "[default]"
+            echo "aws_access_key_id = ${AWS_ACCESS_KEY_ID}"
+            echo "aws_secret_access_key = ${AWS_SECRET_ACCESS_KEY}"
+            if [ -n "${AWS_SESSION_TOKEN:-}" ]; then
+              echo "aws_session_token = ${AWS_SESSION_TOKEN}"
+            fi
+          } > "${HOME}/.aws/credentials"
+          chmod 600 "${HOME}/.aws/credentials"
+
+      - name: Create disposable PsyNet experiment repository
+        run: |
+          set -euo pipefail
+          psynet-github create "${{ steps.plan.outputs.full_repo }}" \
+            --directory "${RUNNER_TEMP}/${{ steps.plan.outputs.repo_name }}" \
+            --description "Disposable psynet-github integration test repository" \
+            --set-aws-secrets \
+            --aws-credentials-file "${HOME}/.aws/credentials" \
+            --dashboard-user admin \
+            --dashboard-password admin
+
+      - name: Dispatch generated deployment workflow
+        id: dispatch
+        run: |
+          set -euo pipefail
+          full_repo="${{ steps.plan.outputs.full_repo }}"
+
+          dispatched=false
+          for attempt in {1..30}; do
+            if gh workflow run deploy-hotair.yml \
+              --repo "${full_repo}" \
+              --ref main \
+              -f deploy_ref=main \
+              -f region="${{ inputs.region }}" \
+              -f instance_type="${{ inputs.instance_type }}" \
+              -f memory_gb="${{ inputs.memory_gb }}" \
+              -f server_name="${{ steps.plan.outputs.server_name }}" \
+              -f app_name="${{ steps.plan.outputs.app_name }}" \
+              -f dns_host="${{ steps.plan.outputs.dns_host }}" \
+              -f ssh_key_name="${{ steps.plan.outputs.ssh_key_name }}"; then
+              dispatched=true
+              break
+            fi
+            echo "Waiting for generated workflow to become dispatchable (${attempt}/30)..."
+            sleep 10
+          done
+
+          if [ "${dispatched}" != "true" ]; then
+            echo "Could not dispatch generated deploy workflow." >&2
+            exit 1
+          fi
+
+          run_id=""
+          for attempt in {1..30}; do
+            run_id="$(gh run list \
+              --repo "${full_repo}" \
+              --workflow deploy-hotair.yml \
+              --branch main \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId // ""')"
+            if [ -n "${run_id}" ]; then
+              break
+            fi
+            echo "Waiting for generated deploy workflow run to appear (${attempt}/30)..."
+            sleep 5
+          done
+
+          if [ -z "${run_id}" ]; then
+            echo "Generated deploy workflow run did not appear." >&2
+            exit 1
+          fi
+
+          echo "run_id=${run_id}" >> "${GITHUB_OUTPUT}"
+          echo "Generated deploy workflow run: ${run_id}"
+
+      - name: Watch generated deployment workflow
+        run: |
+          set -euo pipefail
+          gh run watch "${{ steps.dispatch.outputs.run_id }}" \
+            --repo "${{ steps.plan.outputs.full_repo }}" \
+            --exit-status \
+            --interval 30
+
+      - name: Cleanup AWS resources
+        if: ${{ always() && inputs.cleanup }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+
+          if [ -z "${{ steps.plan.outputs.server_name }}" ]; then
+            echo "No planned server name; skipping AWS cleanup."
+            exit 0
+          fi
+
+          python3 - <<'PY'
+          import os
+
+          import boto3
+          from botocore.exceptions import ClientError
+
+          region = os.environ["AWS_REGION"]
+          server_name = "${{ steps.plan.outputs.server_name }}"
+          key_name = "${{ steps.plan.outputs.ssh_key_name }}"
+          ec2 = boto3.client("ec2", region_name=region)
+
+          response = ec2.describe_instances(
+              Filters=[
+                  {"Name": "tag:Name", "Values": [server_name]},
+                  {
+                      "Name": "instance-state-name",
+                      "Values": ["pending", "running", "stopping", "stopped"],
+                  },
+              ]
+          )
+          instance_ids = [
+              instance["InstanceId"]
+              for reservation in response["Reservations"]
+              for instance in reservation["Instances"]
+          ]
+          if instance_ids:
+              print(f"Terminating integration EC2 instance(s): {', '.join(instance_ids)}")
+              ec2.terminate_instances(InstanceIds=instance_ids)
+              ec2.get_waiter("instance_terminated").wait(InstanceIds=instance_ids)
+          else:
+              print(f"No integration EC2 instances found for {server_name!r}.")
+
+          try:
+              ec2.delete_key_pair(KeyName=key_name)
+          except ClientError as exc:
+              code = exc.response.get("Error", {}).get("Code")
+              if code == "InvalidKeyPair.NotFound":
+                  print(f"EC2 key pair {key_name!r} was already absent.")
+              else:
+                  raise
+          else:
+              print(f"Deleted integration EC2 key pair {key_name!r}.")
+          PY
+
+      - name: Delete disposable repository
+        if: ${{ always() && inputs.cleanup }}
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          if [ -z "${{ steps.plan.outputs.full_repo }}" ]; then
+            echo "No planned disposable repository; skipping repository cleanup."
+            exit 0
+          fi
+          gh repo delete "${{ steps.plan.outputs.full_repo }}" --yes
