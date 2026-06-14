@@ -45,18 +45,18 @@ run manually from the Actions tab. It accepts a branch, tag, or commit SHA to
 deploy, plus deployment parameters pre-filled from `deploy.txt`.
 
 Before running it, configure GitHub secrets or repository/environment variables
-for:
+for AWS:
 
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_SESSION_TOKEN` if your AWS credentials require one
-- `EC2_SSH_PRIVATE_KEY`
-- `DALLINGER_DASHBOARD_USER`
-- `DALLINGER_DASHBOARD_PASSWORD`
 
 `psynet-github create` generates a unique EC2 SSH keypair under `.deploy/ssh/`
 and, when it creates the GitHub repository, copies the private key into the
 `EC2_SSH_PRIVATE_KEY` GitHub Actions secret.
+It also configures `DALLINGER_DASHBOARD_USER` and
+`DALLINGER_DASHBOARD_PASSWORD` as GitHub Actions secrets, defaulting to
+`admin` / `admin`.
 It also installs a local `.git/hooks/pre-commit` hook that rejects staged files
 containing private-key PEM/OpenSSH markers.
 
