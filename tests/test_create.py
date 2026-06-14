@@ -70,6 +70,10 @@ def test_create_renders_template_without_git_or_github(tmp_path):
         target_dir / ".github" / "workflows" / "deploy-hotair.yml"
     ).read_text(encoding="utf-8")
     assert "deploy_ref" in deploy_workflow
+    assert "image: redis:7" in deploy_workflow
+    assert "6379:6379" in deploy_workflow
+    assert "Verify Redis is available" in deploy_workflow
+    assert 'socket.create_connection(("127.0.0.1", 6379)' in deploy_workflow
     assert "dallinger ec2 provision" in deploy_workflow
     assert 'dallinger ec2 list instances --region "${{ inputs.region }}"' in deploy_workflow
     assert "dallinger ec2 list instances --all" not in deploy_workflow

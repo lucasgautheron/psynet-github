@@ -63,6 +63,16 @@ jobs:
     name: Provision and start hotair debug run
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - name: Checkout selected ref
         uses: actions/checkout@v4
@@ -103,6 +113,28 @@ jobs:
 
           command -v dallinger >/dev/null
           command -v psynet >/dev/null
+
+      - name: Verify Redis is available
+        run: |
+          set -euo pipefail
+
+          for attempt in {1..30}; do
+            if python3 - <<'PY'
+          import socket
+
+          with socket.create_connection(("127.0.0.1", 6379), timeout=1):
+              pass
+          PY
+            then
+              echo "Redis is accepting connections."
+              exit 0
+            fi
+            echo "Waiting for Redis on localhost:6379 (${attempt}/30)..."
+            sleep 2
+          done
+
+          echo "Redis did not become available on localhost:6379." >&2
+          exit 1
 
       - name: Configure Dallinger and AWS environment
         env:
