@@ -283,7 +283,7 @@ def generate_ec2_ssh_key(
     repository: RepositorySpec,
     runner: CommandRunner,
 ) -> None:
-    """Generate a unique RSA keypair for Dallinger EC2 SSH deployment."""
+    """Generate a unique OpenSSH Ed25519 keypair for Dallinger EC2 SSH deployment."""
 
     public_key_path = public_key_path_for_private_key(private_key_path)
     if private_key_path.exists() or public_key_path.exists():
@@ -297,11 +297,7 @@ def generate_ec2_ssh_key(
             "ssh-keygen",
             "-q",
             "-t",
-            "rsa",
-            "-b",
-            "4096",
-            "-m",
-            "PEM",
+            "ed25519",
             "-N",
             "",
             "-C",

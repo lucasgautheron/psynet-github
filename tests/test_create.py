@@ -278,6 +278,10 @@ def test_create_generates_ec2_ssh_key_and_sets_github_secret(tmp_path, monkeypat
     assert (target_dir / ".deploy" / "ssh" / "starter-ec2.pem.pub").exists()
 
     assert commands[0][0][:2] == ["ssh-keygen", "-q"]
+    assert "-t" in commands[0][0]
+    assert commands[0][0][commands[0][0].index("-t") + 1] == "ed25519"
+    assert "rsa" not in commands[0][0]
+    assert "PEM" not in commands[0][0]
     assert commands[1][0] == ["git", "init", "-b", "main"]
     assert commands[4][0][:3] == ["gh", "repo", "create"]
     assert commands[-3:] == [

@@ -56,9 +56,9 @@ The GitHub-creating path requires an authenticated
 [GitHub CLI](https://cli.github.com/) installation. The command renders a
 minimal PsyNet experiment, initializes git, commits the scaffold, creates the
 GitHub repository with `gh repo create`, and pushes the starter commit.
-It also generates a unique EC2 SSH key under the generated repository's
-git-ignored `.deploy/ssh/` directory and copies the private key into the
-`EC2_SSH_PRIVATE_KEY` GitHub Actions secret.
+It also generates a unique OpenSSH Ed25519 EC2 SSH key under the generated
+repository's git-ignored `.deploy/ssh/` directory and copies the private key
+into the `EC2_SSH_PRIVATE_KEY` GitHub Actions secret.
 The deployment dashboard credentials are also configured as GitHub Actions
 secrets, defaulting to `admin` / `admin`.
 Generated repositories also receive a local `.git/hooks/pre-commit` hook that
@@ -88,8 +88,8 @@ The generated repository includes:
   run from a selected branch.
 - `deploy.txt` containing the generated deployment defaults used to pre-fill the
   workflow.
-- `.deploy/ssh/<repository>-ec2.pem`, a git-ignored EC2 SSH private key generated
-  during creation.
+- `.deploy/ssh/<repository>-ec2.pem`, a git-ignored OpenSSH Ed25519 EC2 SSH
+  private key generated during creation.
 - A local `.git/hooks/pre-commit` hook that blocks commits containing private
   key material.
 - `AGENTS.md` with HTTP links to relevant PsyNetSkills guidance.
