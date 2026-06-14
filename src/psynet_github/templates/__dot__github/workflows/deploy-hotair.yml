@@ -273,6 +273,38 @@ jobs:
             --region "${{ inputs.region }}" \
             --dns-host "${{ inputs.dns_host }}"
 
+      - name: Delete stale EC2 key pair before provisioning
+        if: ${{ steps.server.outputs.exists != 'true' || steps.ssh_auth.outputs.recreate == 'true' }}
+        run: |
+          set -euo pipefail
+          source .venv/bin/activate
+
+          python3 - <<'PY'
+          import sys
+
+          import boto3
+          from botocore.exceptions import ClientError
+
+          key_name = "${{ inputs.ssh_key_name }}"
+          region = "${{ inputs.region }}"
+
+          ec2 = boto3.client("ec2", region_name=region)
+          try:
+              ec2.delete_key_pair(KeyName=key_name)
+          except ClientError as exc:
+              code = exc.response.get("Error", {}).get("Code")
+              if code == "InvalidKeyPair.NotFound":
+                  print(f"EC2 key pair {key_name!r} was not present in {region}.")
+              else:
+                  print(f"Failed to delete EC2 key pair {key_name!r}: {exc}", file=sys.stderr)
+                  raise
+          else:
+              print(
+                  f"Deleted existing EC2 key pair {key_name!r} in {region}; "
+                  "Dallinger will import the public key matching EC2_SSH_PRIVATE_KEY."
+              )
+          PY
+
       - name: Provision EC2 server if needed
         if: ${{ steps.server.outputs.exists != 'true' || steps.ssh_auth.outputs.recreate == 'true' }}
         run: |
