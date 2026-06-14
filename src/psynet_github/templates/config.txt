@@ -1,0 +1,15 @@
+[Config]
+title = {{project_title}} (Chrome browser, ~1 minute to complete)
+description = {{description}}
+contact_email_on_error = experimenter@example.com
+organization_name = PsyNet experiment
+
+recruiter = generic
+currency = $
+wage_per_hour = 12.0
+
+[Prolific]
+# recruiter = prolific
+auto_recruit = false
+prolific_estimated_completion_minutes = 1
+base_payment = 0.20
