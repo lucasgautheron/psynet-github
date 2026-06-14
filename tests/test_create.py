@@ -73,6 +73,10 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "dallinger ec2 provision" in deploy_workflow
     assert 'dallinger ec2 list instances --region "${{ inputs.region }}"' in deploy_workflow
     assert "dallinger ec2 list instances --all" not in deploy_workflow
+    assert "Register Dallinger SSH server" in deploy_workflow
+    assert "dallinger docker-ssh servers add" in deploy_workflow
+    assert '--host "${{ inputs.dns_host }}"' in deploy_workflow
+    assert "--user ubuntu" in deploy_workflow
     assert "psynet destroy ssh" in deploy_workflow
     assert "psynet debug ssh" in deploy_workflow
     assert "Configure hotair recruiter" in deploy_workflow
