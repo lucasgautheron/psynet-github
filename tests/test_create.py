@@ -75,7 +75,9 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "dallinger ec2 list instances --all" not in deploy_workflow
     assert "psynet destroy ssh" in deploy_workflow
     assert "psynet debug ssh" in deploy_workflow
-    assert "--recruiter hotair" in deploy_workflow
+    assert "Configure hotair recruiter" in deploy_workflow
+    assert "recruiter = hotair" in deploy_workflow
+    assert "--recruiter" not in deploy_workflow
     assert "EC2_SSH_PRIVATE_KEY" in deploy_workflow
 
 
