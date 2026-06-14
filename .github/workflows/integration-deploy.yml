@@ -74,6 +74,12 @@ jobs:
           python -m pip install --upgrade pip wheel
           pip install -e . boto3
 
+      - name: Configure git author
+        run: |
+          set -euo pipefail
+          git config --global user.name "psynet-github integration"
+          git config --global user.email "psynet-github-integration@users.noreply.github.com"
+
       - name: Validate secrets and plan integration run
         id: plan
         env:

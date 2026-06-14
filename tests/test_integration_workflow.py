@@ -9,6 +9,9 @@ def test_integration_workflow_exercises_generated_deploy_pipeline():
 
     assert "workflow_dispatch:" in text
     assert "PSYNET_GITHUB_TEST_TOKEN" in text
+    assert "Configure git author" in text
+    assert 'git config --global user.name "psynet-github integration"' in text
+    assert "psynet-github-integration@users.noreply.github.com" in text
     assert "psynet-github create" in text
     assert "--set-aws-secrets" in text
     assert "gh workflow run deploy-hotair.yml" in text
