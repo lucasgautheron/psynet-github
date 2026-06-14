@@ -49,10 +49,26 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     )
     assert (target_dir / ".gitignore").exists()
     assert (target_dir / ".github" / "workflows" / "test.yml").exists()
+    assert (target_dir / ".github" / "workflows" / "deploy-hotair.yml").exists()
     assert "PsyNetSkills" in (target_dir / "AGENTS.md").read_text(encoding="utf-8")
     assert "A generated PsyNet experiment." in (
         target_dir / "README.md"
     ).read_text(encoding="utf-8")
+
+    deploy_defaults = (target_dir / "deploy.txt").read_text(encoding="utf-8")
+    assert "region=us-east-1" in deploy_defaults
+    assert "instance_type=m7i.xlarge" in deploy_defaults
+    assert "memory_gb=32" in deploy_defaults
+    assert "server_name=starter-debug" in deploy_defaults
+
+    deploy_workflow = (
+        target_dir / ".github" / "workflows" / "deploy-hotair.yml"
+    ).read_text(encoding="utf-8")
+    assert "deploy_ref" in deploy_workflow
+    assert "dallinger ec2 provision" in deploy_workflow
+    assert "psynet destroy ssh" in deploy_workflow
+    assert "psynet debug ssh" in deploy_workflow
+    assert "--recruiter hotair" in deploy_workflow
 
 
 def test_create_initializes_git_when_github_is_skipped(tmp_path):

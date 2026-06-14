@@ -56,4 +56,8 @@ The generated repository includes:
 - `config.txt`, `requirements.txt`, `constraints.txt`, `test.py`, `pytest.ini`,
   and `.python-version`.
 - `.github/workflows/test.yml` for basic CI.
+- `.github/workflows/deploy-hotair.yml` for manually deploying a hotair debug
+  run from a selected branch.
+- `deploy.txt` containing the generated deployment defaults used to pre-fill the
+  workflow.
 - `AGENTS.md` with HTTP links to relevant PsyNetSkills guidance.
