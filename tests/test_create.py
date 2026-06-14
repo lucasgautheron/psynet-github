@@ -7,6 +7,7 @@ from psynet_github.create import (
     CreateOptions,
     create_experiment_repository,
     parse_repository,
+    read_aws_credentials,
 )
 
 
@@ -75,8 +76,8 @@ def test_create_initializes_git_when_github_is_skipped(tmp_path):
     target_dir = tmp_path / "starter"
     commands = []
 
-    def runner(command, cwd):
-        commands.append((list(command), Path(cwd)))
+    def runner(command, cwd, input_text=None):
+        commands.append((list(command), Path(cwd), input_text))
 
     result = create_experiment_repository(
         CreateOptions(
@@ -90,9 +91,13 @@ def test_create_initializes_git_when_github_is_skipped(tmp_path):
     assert result.initialized_git is True
     assert result.pushed_to_github is False
     assert commands == [
-        (["git", "init", "-b", "main"], target_dir),
-        (["git", "add", "."], target_dir),
-        (["git", "commit", "-m", "Create starter PsyNet experiment"], target_dir),
+        (["git", "init", "-b", "main"], target_dir, None),
+        (["git", "add", "."], target_dir, None),
+        (
+            ["git", "commit", "-m", "Create starter PsyNet experiment"],
+            target_dir,
+            None,
+        ),
     ]
 
 
@@ -107,5 +112,89 @@ def test_create_fails_for_non_empty_directory_without_force(tmp_path):
                 repository="starter",
                 directory=target_dir,
                 no_git=True,
+            )
+        )
+
+
+def test_read_aws_credentials_from_profile(tmp_path):
+    credentials_file = tmp_path / "credentials"
+    credentials_file.write_text(
+        """
+        [default]
+        aws_access_key_id = default-key
+        aws_secret_access_key = default-secret
+
+        [workshop]
+        aws_access_key_id = workshop-key
+        aws_secret_access_key = workshop-secret
+        aws_session_token = workshop-token
+        """,
+        encoding="utf-8",
+    )
+
+    assert read_aws_credentials(credentials_file=credentials_file) == {
+        "AWS_ACCESS_KEY_ID": "default-key",
+        "AWS_SECRET_ACCESS_KEY": "default-secret",
+    }
+    assert read_aws_credentials(
+        profile="workshop",
+        credentials_file=credentials_file,
+    ) == {
+        "AWS_ACCESS_KEY_ID": "workshop-key",
+        "AWS_SECRET_ACCESS_KEY": "workshop-secret",
+        "AWS_SESSION_TOKEN": "workshop-token",
+    }
+
+
+def test_create_sets_aws_secrets_from_credentials_file(tmp_path, monkeypatch):
+    target_dir = tmp_path / "starter"
+    credentials_file = tmp_path / "credentials"
+    credentials_file.write_text(
+        """
+        [default]
+        aws_access_key_id = key
+        aws_secret_access_key = secret
+        aws_session_token = token
+        """,
+        encoding="utf-8",
+    )
+    commands = []
+
+    def runner(command, cwd, input_text=None):
+        commands.append((list(command), Path(cwd) if cwd else None, input_text))
+
+    monkeypatch.setattr("psynet_github.create.shutil.which", lambda command: f"/usr/bin/{command}")
+
+    result = create_experiment_repository(
+        CreateOptions(
+            repository="starter",
+            directory=target_dir,
+            set_aws_secrets=True,
+            aws_credentials_file=credentials_file,
+        ),
+        runner=runner,
+    )
+
+    assert result.configured_secrets == (
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+    )
+    assert commands[-3:] == [
+        (["gh", "secret", "set", "AWS_ACCESS_KEY_ID"], target_dir, "key"),
+        (["gh", "secret", "set", "AWS_SECRET_ACCESS_KEY"], target_dir, "secret"),
+        (["gh", "secret", "set", "AWS_SESSION_TOKEN"], target_dir, "token"),
+    ]
+    assert commands[3][0][:3] == ["gh", "repo", "create"]
+
+
+def test_set_aws_secrets_requires_github_creation(tmp_path):
+    with pytest.raises(CreateError, match="requires GitHub repository creation"):
+        create_experiment_repository(
+            CreateOptions(
+                repository="starter",
+                directory=tmp_path / "starter",
+                no_github=True,
+                set_aws_secrets=True,
             )
         )

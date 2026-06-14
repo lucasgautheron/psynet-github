@@ -54,6 +54,16 @@ for:
 Also configure the `EC2_SSH_PRIVATE_KEY` secret if Dallinger should use a
 specific SSH private key for the EC2 server.
 
+If this repository was created with:
+
+```bash
+psynet-github create {{repo_full_name}} --set-aws-secrets
+```
+
+then `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and optional
+`AWS_SESSION_TOKEN` were copied from the selected local AWS profile into GitHub
+Actions secrets during repository creation.
+
 The workflow checks whether the configured EC2 server already exists, provisions
 it with `dallinger ec2 provision` if needed, attempts to stop an existing debug
 app with `psynet destroy ssh`, and starts a fresh run with `psynet debug ssh`.

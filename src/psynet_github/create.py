@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import configparser
 import re
 import shutil
 import subprocess
@@ -10,9 +11,14 @@ from typing import Callable, Iterable, Mapping, Sequence
 from urllib.parse import urlparse
 
 
-CommandRunner = Callable[[Sequence[str], Path | None], None]
+CommandRunner = Callable[[Sequence[str], Path | None, str | None], None]
 
 GITHUB_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
+AWS_SECRET_NAMES = (
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+)
 
 
 class CreateError(RuntimeError):
@@ -47,6 +53,9 @@ class CreateOptions:
     no_github: bool = False
     no_git: bool = False
     force: bool = False
+    set_aws_secrets: bool = False
+    aws_profile: str = "default"
+    aws_credentials_file: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +66,7 @@ class CreateResult:
     directory: Path
     initialized_git: bool
     pushed_to_github: bool
+    configured_secrets: tuple[str, ...] = ()
 
 
 def create_experiment_repository(
@@ -75,6 +85,8 @@ def create_experiment_repository(
     target_dir = resolve_target_directory(repository, options.directory)
     command_runner = runner or run_command
     no_github = options.no_github or options.no_git
+    if options.set_aws_secrets and no_github:
+        raise CreateError("--set-aws-secrets requires GitHub repository creation.")
 
     render_template(
         target_dir,
@@ -91,6 +103,7 @@ def create_experiment_repository(
 
     initialized_git = False
     pushed_to_github = False
+    configured_secrets: tuple[str, ...] = ()
 
     if not options.no_git:
         initialize_git_repository(target_dir, options.default_branch, command_runner)
@@ -104,12 +117,19 @@ def create_experiment_repository(
             command_runner,
         )
         pushed_to_github = True
+        if options.set_aws_secrets:
+            configured_secrets = configure_aws_github_secrets(
+                target_dir,
+                options,
+                command_runner,
+            )
 
     return CreateResult(
         repository=repository,
         directory=target_dir,
         initialized_git=initialized_git,
         pushed_to_github=pushed_to_github,
+        configured_secrets=configured_secrets,
     )
 
 
@@ -224,9 +244,9 @@ def initialize_git_repository(
 ) -> None:
     """Initialize a git repository and create the starter commit."""
 
-    runner(["git", "init", "-b", default_branch], target_dir)
-    runner(["git", "add", "."], target_dir)
-    runner(["git", "commit", "-m", "Create starter PsyNet experiment"], target_dir)
+    runner(["git", "init", "-b", default_branch], target_dir, None)
+    runner(["git", "add", "."], target_dir, None)
+    runner(["git", "commit", "-m", "Create starter PsyNet experiment"], target_dir, None)
 
 
 def create_github_repository(
@@ -257,12 +277,104 @@ def create_github_repository(
     if options.description:
         command.extend(["--description", options.description])
 
-    runner(command, target_dir)
+    runner(command, target_dir, None)
 
 
-def run_command(command: Sequence[str], cwd: Path | None = None) -> None:
+def configure_aws_github_secrets(
+    target_dir: Path,
+    options: CreateOptions,
+    runner: CommandRunner,
+) -> tuple[str, ...]:
+    """Copy AWS credentials from a local AWS profile into GitHub Actions secrets."""
+
+    if shutil.which("gh") is None:
+        raise CreateError(
+            "GitHub CLI (`gh`) is required to configure repository secrets."
+        )
+
+    secrets = read_aws_credentials(
+        profile=options.aws_profile,
+        credentials_file=options.aws_credentials_file,
+    )
+
+    configured = []
+    for name in AWS_SECRET_NAMES:
+        value = secrets.get(name)
+        if value:
+            runner(
+                ["gh", "secret", "set", name],
+                target_dir,
+                value,
+            )
+            configured.append(name)
+
+    return tuple(configured)
+
+
+def read_aws_credentials(
+    *,
+    profile: str = "default",
+    credentials_file: Path | None = None,
+) -> dict[str, str]:
+    """Read AWS credentials from an INI-style AWS credentials file."""
+
+    path = (credentials_file or Path("~/.aws/credentials")).expanduser()
+    if not path.is_file():
+        raise CreateError(f"AWS credentials file not found: {path}")
+
+    parser = configparser.ConfigParser()
+    parser.read(path)
+
+    section_name = resolve_aws_profile_section(parser, profile)
+    if section_name is None:
+        raise CreateError(f"AWS profile {profile!r} was not found in {path}.")
+
+    section = parser[section_name]
+    required_keys = ("aws_access_key_id", "aws_secret_access_key")
+    missing = [key for key in required_keys if not section.get(key, "").strip()]
+    if missing:
+        missing_list = ", ".join(missing)
+        raise CreateError(
+            f"AWS profile {profile!r} is missing required value(s): {missing_list}."
+        )
+
+    credentials = {
+        "AWS_ACCESS_KEY_ID": section["aws_access_key_id"].strip(),
+        "AWS_SECRET_ACCESS_KEY": section["aws_secret_access_key"].strip(),
+    }
+    session_token = section.get("aws_session_token", "").strip()
+    if session_token:
+        credentials["AWS_SESSION_TOKEN"] = session_token
+    return credentials
+
+
+def resolve_aws_profile_section(
+    parser: configparser.ConfigParser,
+    profile: str,
+) -> str | None:
+    candidates = [profile]
+    if profile != "default":
+        candidates.append(f"profile {profile}")
+
+    for candidate in candidates:
+        if parser.has_section(candidate):
+            return candidate
+    return None
+
+
+def run_command(
+    command: Sequence[str],
+    cwd: Path | None = None,
+    input_text: str | None = None,
+) -> None:
     try:
-        subprocess.run(command, cwd=cwd, check=True)
+        subprocess.run(
+            command,
+            cwd=cwd,
+            check=True,
+            input=input_text,
+            text=input_text is not None,
+        )
     except FileNotFoundError as exc:
         raise CreateError(f"Required command not found: {command[0]}") from exc
     except subprocess.CalledProcessError as exc:

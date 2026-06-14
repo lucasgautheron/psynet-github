@@ -73,6 +73,27 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Allow writing template files into an existing non-empty directory.",
     )
+    create_parser.add_argument(
+        "--set-aws-secrets",
+        action="store_true",
+        help=(
+            "Copy AWS credentials from ~/.aws/credentials into GitHub Actions "
+            "secrets after creating the repository."
+        ),
+    )
+    create_parser.add_argument(
+        "--aws-profile",
+        default="default",
+        help="AWS profile to read when --set-aws-secrets is used. Defaults to default.",
+    )
+    create_parser.add_argument(
+        "--aws-credentials-file",
+        type=Path,
+        help=(
+            "AWS credentials file to read when --set-aws-secrets is used. "
+            "Defaults to ~/.aws/credentials."
+        ),
+    )
     create_parser.set_defaults(func=run_create)
     return parser
 
@@ -91,6 +112,9 @@ def run_create(args: argparse.Namespace) -> int:
             no_github=no_github,
             no_git=args.no_git,
             force=args.force,
+            set_aws_secrets=args.set_aws_secrets,
+            aws_profile=args.aws_profile,
+            aws_credentials_file=args.aws_credentials_file,
         )
     )
 
@@ -99,6 +123,9 @@ def run_create(args: argparse.Namespace) -> int:
         print("Initialized git repository and committed the starter experiment.")
     if result.pushed_to_github:
         print(f"Created and pushed GitHub repository {result.repository.full_name}.")
+        if result.configured_secrets:
+            names = ", ".join(result.configured_secrets)
+            print(f"Configured GitHub Actions secrets: {names}.")
     else:
         print("Skipped GitHub repository creation.")
     return 0

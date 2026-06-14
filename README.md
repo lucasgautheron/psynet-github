@@ -43,10 +43,25 @@ Render the template locally without creating a GitHub repository:
 psynet-github create my-psynet-experiment --no-github
 ```
 
+Create the repository and copy AWS credentials from `~/.aws/credentials` into
+GitHub Actions secrets:
+
+```bash
+psynet-github create my-psynet-experiment \
+  --set-aws-secrets \
+  --aws-profile default
+```
+
 The GitHub-creating path requires an authenticated
 [GitHub CLI](https://cli.github.com/) installation. The command renders a
 minimal PsyNet experiment, initializes git, commits the scaffold, creates the
 GitHub repository with `gh repo create`, and pushes the starter commit.
+
+`--set-aws-secrets` is opt-in because it copies local AWS credentials into the
+new repository's GitHub Actions secrets. It reads `aws_access_key_id`,
+`aws_secret_access_key`, and optional `aws_session_token` from the selected AWS
+profile and stores them as `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and
+`AWS_SESSION_TOKEN`.
 
 ## Generated experiment contents
 
