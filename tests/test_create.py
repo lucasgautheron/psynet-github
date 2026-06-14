@@ -80,8 +80,10 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "Verify SSH key for existing server" in deploy_workflow
     assert "Could not authenticate to the existing EC2 server" in deploy_workflow
     assert "intentionally tear down the" in deploy_workflow
-    assert "Teardown existing EC2 server after SSH auth failure" in deploy_workflow
-    assert "dallinger ec2 teardown" in deploy_workflow
+    assert "Terminate existing EC2 server after SSH auth failure" in deploy_workflow
+    assert "ec2.terminate_instances(InstanceIds=instance_ids)" in deploy_workflow
+    assert 'ec2.get_waiter("instance_terminated")' in deploy_workflow
+    assert "dallinger ec2 teardown" not in deploy_workflow
     assert "steps.ssh_auth.outputs.recreate == 'true'" in deploy_workflow
     assert "Delete stale EC2 key pair before provisioning" in deploy_workflow
     assert "ec2.delete_key_pair(KeyName=key_name)" in deploy_workflow
