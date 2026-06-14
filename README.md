@@ -93,3 +93,31 @@ The generated repository includes:
 - A local `.git/hooks/pre-commit` hook that blocks commits containing private
   key material.
 - `AGENTS.md` with HTTP links to relevant PsyNetSkills guidance.
+
+## Integration deployment test
+
+This repository includes a manual GitHub Actions workflow,
+`Integration deploy generated experiment`, that exercises the full generated
+pipeline:
+
+1. Create a disposable PsyNet experiment repository with `psynet-github create`.
+2. Configure the generated repository secrets.
+3. Dispatch the generated repository's `deploy-hotair.yml` workflow.
+4. Watch that workflow to completion.
+5. Clean up the disposable repository and matching AWS EC2/key-pair resources.
+
+Configure the required secrets from a local clone with:
+
+```bash
+python scripts/setup_secrets.py \
+  --repo OWNER/psynet-github \
+  --aws-profile default \
+  --use-gh-token \
+  --dns-domain example.com
+```
+
+The stored `PSYNET_GITHUB_TEST_TOKEN` must be able to create/delete disposable
+repositories and configure secrets in those repositories. For a classic GitHub
+token, this typically means `repo`, `workflow`, and `delete_repo` scopes. If you
+do not configure `--dns-domain`, provide `dns_host` or `dns_domain` when manually
+dispatching the workflow.
