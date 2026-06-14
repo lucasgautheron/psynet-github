@@ -57,6 +57,8 @@ for:
 `psynet-github create` generates a unique EC2 SSH keypair under `.deploy/ssh/`
 and, when it creates the GitHub repository, copies the private key into the
 `EC2_SSH_PRIVATE_KEY` GitHub Actions secret.
+It also installs a local `.git/hooks/pre-commit` hook that rejects staged files
+containing private-key PEM/OpenSSH markers.
 
 If this repository was created with:
 

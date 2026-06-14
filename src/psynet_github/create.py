@@ -322,8 +322,42 @@ def initialize_git_repository(
     """Initialize a git repository and create the starter commit."""
 
     runner(["git", "init", "-b", default_branch], target_dir, None)
+    install_private_key_pre_commit_hook(target_dir)
     runner(["git", "add", "."], target_dir, None)
     runner(["git", "commit", "-m", "Create starter PsyNet experiment"], target_dir, None)
+
+
+def install_private_key_pre_commit_hook(target_dir: Path) -> Path:
+    """Install a local hook that rejects staged private-key material."""
+
+    hooks_dir = target_dir / ".git" / "hooks"
+    if not hooks_dir.is_dir():
+        raise CreateError(f"Git hooks directory not found: {hooks_dir}")
+
+    hook_path = hooks_dir / "pre-commit"
+    hook_path.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+
+patterns='-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----'
+matched=0
+
+while IFS= read -r -d '' path; do
+  if git show ":${path}" 2>/dev/null | grep -E -- "${patterns}" >/dev/null; then
+    echo "Refusing to commit private-key material in staged file: ${path}" >&2
+    matched=1
+  fi
+done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+
+if [ "${matched}" -ne 0 ]; then
+  echo "Move private keys to a git-ignored location such as .deploy/ssh/ and retry." >&2
+  exit 1
+fi
+""",
+        encoding="utf-8",
+    )
+    hook_path.chmod(0o755)
+    return hook_path
 
 
 def create_github_repository(

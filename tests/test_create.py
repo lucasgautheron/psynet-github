@@ -82,6 +82,8 @@ def test_create_initializes_git_when_github_is_skipped(tmp_path):
     commands = []
 
     def runner(command, cwd, input_text=None):
+        if command[:2] == ["git", "init"]:
+            Path(cwd, ".git", "hooks").mkdir(parents=True)
         commands.append((list(command), Path(cwd), input_text))
 
     result = create_experiment_repository(
@@ -96,6 +98,9 @@ def test_create_initializes_git_when_github_is_skipped(tmp_path):
 
     assert result.initialized_git is True
     assert result.pushed_to_github is False
+    hook = target_dir / ".git" / "hooks" / "pre-commit"
+    assert hook.exists()
+    assert "PRIVATE KEY" in hook.read_text(encoding="utf-8")
     assert commands == [
         (["git", "init", "-b", "main"], target_dir, None),
         (["git", "add", "."], target_dir, None),
@@ -168,6 +173,8 @@ def test_create_sets_aws_secrets_from_credentials_file(tmp_path, monkeypatch):
     commands = []
 
     def runner(command, cwd, input_text=None):
+        if command[:2] == ["git", "init"]:
+            Path(cwd, ".git", "hooks").mkdir(parents=True)
         commands.append((list(command), Path(cwd) if cwd else None, input_text))
 
     monkeypatch.setattr(
@@ -217,6 +224,8 @@ def test_create_generates_ec2_ssh_key_and_sets_github_secret(tmp_path, monkeypat
     commands = []
 
     def runner(command, cwd, input_text=None):
+        if command[:2] == ["git", "init"]:
+            Path(cwd, ".git", "hooks").mkdir(parents=True)
         commands.append((list(command), Path(cwd) if cwd else None, input_text))
         if command[0] == "ssh-keygen":
             private_key_path = Path(command[command.index("-f") + 1])
@@ -242,6 +251,7 @@ def test_create_generates_ec2_ssh_key_and_sets_github_secret(tmp_path, monkeypat
     private_key_path = target_dir / ".deploy" / "ssh" / "starter-ec2.pem"
     assert result.ec2_ssh_private_key_path == private_key_path
     assert result.configured_secrets == ("EC2_SSH_PRIVATE_KEY",)
+    assert (target_dir / ".git" / "hooks" / "pre-commit").exists()
     assert private_key_path.read_text(encoding="utf-8") == "PRIVATE KEY\n"
     assert (target_dir / ".deploy" / "ssh" / "starter-ec2.pem.pub").exists()
 

@@ -59,6 +59,8 @@ GitHub repository with `gh repo create`, and pushes the starter commit.
 It also generates a unique EC2 SSH key under the generated repository's
 git-ignored `.deploy/ssh/` directory and copies the private key into the
 `EC2_SSH_PRIVATE_KEY` GitHub Actions secret.
+Generated repositories also receive a local `.git/hooks/pre-commit` hook that
+rejects staged files containing private-key PEM/OpenSSH markers.
 
 `--set-aws-secrets` is opt-in because it copies local AWS credentials into the
 new repository's GitHub Actions secrets. It reads `aws_access_key_id`,
@@ -83,4 +85,6 @@ The generated repository includes:
   workflow.
 - `.deploy/ssh/<repository>-ec2.pem`, a git-ignored EC2 SSH private key generated
   during creation.
+- A local `.git/hooks/pre-commit` hook that blocks commits containing private
+  key material.
 - `AGENTS.md` with HTTP links to relevant PsyNetSkills guidance.
