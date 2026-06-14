@@ -37,6 +37,7 @@ def test_create_renders_template_without_git_or_github(tmp_path):
             directory=target_dir,
             description="A generated PsyNet experiment.",
             no_git=True,
+            generate_ec2_ssh_key=False,
         )
     )
 
@@ -49,6 +50,7 @@ def test_create_renders_template_without_git_or_github(tmp_path):
         '"""Empty PsyNet experiment scaffold'
     )
     assert (target_dir / ".gitignore").exists()
+    assert ".deploy/" in (target_dir / ".gitignore").read_text(encoding="utf-8")
     assert (target_dir / ".github" / "workflows" / "test.yml").exists()
     assert (target_dir / ".github" / "workflows" / "deploy-hotair.yml").exists()
     assert "PsyNetSkills" in (target_dir / "AGENTS.md").read_text(encoding="utf-8")
@@ -61,6 +63,8 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "instance_type=m7i.xlarge" in deploy_defaults
     assert "memory_gb=32" in deploy_defaults
     assert "server_name=starter-debug" in deploy_defaults
+    assert "ssh_key_name=starter-ec2" in deploy_defaults
+    assert "ssh_private_key_path=.deploy/ssh/starter-ec2.pem" in deploy_defaults
 
     deploy_workflow = (
         target_dir / ".github" / "workflows" / "deploy-hotair.yml"
@@ -70,6 +74,7 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "psynet destroy ssh" in deploy_workflow
     assert "psynet debug ssh" in deploy_workflow
     assert "--recruiter hotair" in deploy_workflow
+    assert "EC2_SSH_PRIVATE_KEY" in deploy_workflow
 
 
 def test_create_initializes_git_when_github_is_skipped(tmp_path):
@@ -84,6 +89,7 @@ def test_create_initializes_git_when_github_is_skipped(tmp_path):
             repository="starter",
             directory=target_dir,
             no_github=True,
+            generate_ec2_ssh_key=False,
         ),
         runner=runner,
     )
@@ -112,6 +118,7 @@ def test_create_fails_for_non_empty_directory_without_force(tmp_path):
                 repository="starter",
                 directory=target_dir,
                 no_git=True,
+                generate_ec2_ssh_key=False,
             )
         )
 
@@ -163,7 +170,10 @@ def test_create_sets_aws_secrets_from_credentials_file(tmp_path, monkeypatch):
     def runner(command, cwd, input_text=None):
         commands.append((list(command), Path(cwd) if cwd else None, input_text))
 
-    monkeypatch.setattr("psynet_github.create.shutil.which", lambda command: f"/usr/bin/{command}")
+    monkeypatch.setattr(
+        "psynet_github.create.shutil.which",
+        lambda command: f"/usr/bin/{command}",
+    )
 
     result = create_experiment_repository(
         CreateOptions(
@@ -171,6 +181,7 @@ def test_create_sets_aws_secrets_from_credentials_file(tmp_path, monkeypatch):
             directory=target_dir,
             set_aws_secrets=True,
             aws_credentials_file=credentials_file,
+            generate_ec2_ssh_key=False,
         ),
         runner=runner,
     )
@@ -196,5 +207,49 @@ def test_set_aws_secrets_requires_github_creation(tmp_path):
                 directory=tmp_path / "starter",
                 no_github=True,
                 set_aws_secrets=True,
+                generate_ec2_ssh_key=False,
             )
         )
+
+
+def test_create_generates_ec2_ssh_key_and_sets_github_secret(tmp_path, monkeypatch):
+    target_dir = tmp_path / "starter"
+    commands = []
+
+    def runner(command, cwd, input_text=None):
+        commands.append((list(command), Path(cwd) if cwd else None, input_text))
+        if command[0] == "ssh-keygen":
+            private_key_path = Path(command[command.index("-f") + 1])
+            private_key_path.write_text("PRIVATE KEY\n", encoding="utf-8")
+            private_key_path.with_name(f"{private_key_path.name}.pub").write_text(
+                "PUBLIC KEY\n",
+                encoding="utf-8",
+            )
+
+    monkeypatch.setattr(
+        "psynet_github.create.shutil.which",
+        lambda command: f"/usr/bin/{command}",
+    )
+
+    result = create_experiment_repository(
+        CreateOptions(
+            repository="starter",
+            directory=target_dir,
+        ),
+        runner=runner,
+    )
+
+    private_key_path = target_dir / ".deploy" / "ssh" / "starter-ec2.pem"
+    assert result.ec2_ssh_private_key_path == private_key_path
+    assert result.configured_secrets == ("EC2_SSH_PRIVATE_KEY",)
+    assert private_key_path.read_text(encoding="utf-8") == "PRIVATE KEY\n"
+    assert (target_dir / ".deploy" / "ssh" / "starter-ec2.pem.pub").exists()
+
+    assert commands[0][0][:2] == ["ssh-keygen", "-q"]
+    assert commands[1][0] == ["git", "init", "-b", "main"]
+    assert commands[4][0][:3] == ["gh", "repo", "create"]
+    assert commands[-1] == (
+        ["gh", "secret", "set", "EC2_SSH_PRIVATE_KEY"],
+        target_dir,
+        "PRIVATE KEY\n",
+    )

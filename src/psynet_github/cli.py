@@ -94,6 +94,19 @@ def build_parser() -> argparse.ArgumentParser:
             "Defaults to ~/.aws/credentials."
         ),
     )
+    create_parser.add_argument(
+        "--ec2-ssh-key-path",
+        type=Path,
+        help=(
+            "Path for the generated EC2 SSH private key. Defaults to "
+            ".deploy/ssh/<repository>-ec2.pem inside the generated repository."
+        ),
+    )
+    create_parser.add_argument(
+        "--no-ec2-ssh-key",
+        action="store_true",
+        help="Do not generate an EC2 SSH key or configure EC2_SSH_PRIVATE_KEY.",
+    )
     create_parser.set_defaults(func=run_create)
     return parser
 
@@ -115,10 +128,14 @@ def run_create(args: argparse.Namespace) -> int:
             set_aws_secrets=args.set_aws_secrets,
             aws_profile=args.aws_profile,
             aws_credentials_file=args.aws_credentials_file,
+            generate_ec2_ssh_key=not args.no_ec2_ssh_key,
+            ec2_ssh_key_path=args.ec2_ssh_key_path,
         )
     )
 
     print(f"Created PsyNet experiment template in {result.directory}")
+    if result.ec2_ssh_private_key_path:
+        print(f"Generated EC2 SSH private key at {result.ec2_ssh_private_key_path}.")
     if result.initialized_git:
         print("Initialized git repository and committed the starter experiment.")
     if result.pushed_to_github:

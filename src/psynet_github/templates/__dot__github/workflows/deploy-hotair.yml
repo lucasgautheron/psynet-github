@@ -41,7 +41,7 @@ on:
       ssh_key_name:
         description: "Dallinger EC2 SSH key name"
         required: true
-        default: "psynet-github-deploy"
+        default: "{{repo_name}}-ec2"
         type: string
 
 permissions:
@@ -124,12 +124,15 @@ jobs:
           mkdir -p "${HOME}/.ssh"
           chmod 700 "${HOME}/.ssh"
 
-          if [ -n "${EC2_SSH_PRIVATE_KEY:-}" ]; then
-            printf '%s\n' "${EC2_SSH_PRIVATE_KEY}" > "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem"
-            chmod 600 "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem"
-          else
-            echo "EC2_SSH_PRIVATE_KEY is not set; dallinger ec2 provision may fail if the key is not already available."
+          if [ -z "${EC2_SSH_PRIVATE_KEY:-}" ]; then
+            echo "Missing EC2_SSH_PRIVATE_KEY GitHub secret." >&2
+            exit 1
           fi
+
+          printf '%s\n' "${EC2_SSH_PRIVATE_KEY}" > "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem"
+          chmod 600 "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem"
+          ssh-keygen -y -f "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem" > "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem.pub"
+          cp "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem.pub" "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pub"
 
           touch "${HOME}/.ssh/known_hosts"
 

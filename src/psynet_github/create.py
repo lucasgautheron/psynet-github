@@ -19,6 +19,7 @@ AWS_SECRET_NAMES = (
     "AWS_SECRET_ACCESS_KEY",
     "AWS_SESSION_TOKEN",
 )
+EC2_SSH_SECRET_NAME = "EC2_SSH_PRIVATE_KEY"
 
 
 class CreateError(RuntimeError):
@@ -56,6 +57,8 @@ class CreateOptions:
     set_aws_secrets: bool = False
     aws_profile: str = "default"
     aws_credentials_file: Path | None = None
+    generate_ec2_ssh_key: bool = True
+    ec2_ssh_key_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,7 @@ class CreateResult:
     initialized_git: bool
     pushed_to_github: bool
     configured_secrets: tuple[str, ...] = ()
+    ec2_ssh_private_key_path: Path | None = None
 
 
 def create_experiment_repository(
@@ -104,6 +108,15 @@ def create_experiment_repository(
     initialized_git = False
     pushed_to_github = False
     configured_secrets: tuple[str, ...] = ()
+    ec2_ssh_private_key_path: Path | None = None
+
+    if options.generate_ec2_ssh_key:
+        ec2_ssh_private_key_path = resolve_ec2_ssh_key_path(
+            target_dir,
+            repository,
+            options.ec2_ssh_key_path,
+        )
+        generate_ec2_ssh_key(ec2_ssh_private_key_path, repository, command_runner)
 
     if not options.no_git:
         initialize_git_repository(target_dir, options.default_branch, command_runner)
@@ -117,12 +130,11 @@ def create_experiment_repository(
             command_runner,
         )
         pushed_to_github = True
-        if options.set_aws_secrets:
-            configured_secrets = configure_aws_github_secrets(
-                target_dir,
-                options,
-                command_runner,
-            )
+        configured_secrets = configure_github_secrets(
+            target_dir,
+            github_secrets_for_options(options, ec2_ssh_private_key_path),
+            command_runner,
+        )
 
     return CreateResult(
         repository=repository,
@@ -130,6 +142,7 @@ def create_experiment_repository(
         initialized_git=initialized_git,
         pushed_to_github=pushed_to_github,
         configured_secrets=configured_secrets,
+        ec2_ssh_private_key_path=ec2_ssh_private_key_path,
     )
 
 
@@ -237,6 +250,70 @@ def humanize_repo_name(name: str) -> str:
     return " ".join(word.capitalize() for word in words if word) or name
 
 
+def default_ec2_ssh_key_name(repository: RepositorySpec) -> str:
+    return f"{repository.name}-ec2"
+
+
+def resolve_ec2_ssh_key_path(
+    target_dir: Path,
+    repository: RepositorySpec,
+    configured_path: Path | None,
+) -> Path:
+    if configured_path is not None:
+        path = configured_path.expanduser()
+        if not path.is_absolute():
+            path = target_dir / path
+        return path.resolve()
+
+    return target_dir.joinpath(
+        ".deploy",
+        "ssh",
+        f"{default_ec2_ssh_key_name(repository)}.pem",
+    ).resolve()
+
+
+def generate_ec2_ssh_key(
+    private_key_path: Path,
+    repository: RepositorySpec,
+    runner: CommandRunner,
+) -> None:
+    """Generate a unique RSA keypair for Dallinger EC2 SSH deployment."""
+
+    public_key_path = public_key_path_for_private_key(private_key_path)
+    if private_key_path.exists() or public_key_path.exists():
+        raise CreateError(
+            f"EC2 SSH key already exists at {private_key_path} or {public_key_path}."
+        )
+
+    private_key_path.parent.mkdir(parents=True, exist_ok=True)
+    runner(
+        [
+            "ssh-keygen",
+            "-q",
+            "-t",
+            "rsa",
+            "-b",
+            "4096",
+            "-m",
+            "PEM",
+            "-N",
+            "",
+            "-C",
+            f"psynet-github:{repository.full_name}",
+            "-f",
+            str(private_key_path),
+        ],
+        private_key_path.parent,
+        None,
+    )
+    if private_key_path.exists():
+        private_key_path.chmod(0o600)
+
+
+def public_key_path_for_private_key(private_key_path: Path) -> Path:
+    return private_key_path.with_name(f"{private_key_path.name}.pub")
+
+
 def initialize_git_repository(
     target_dir: Path,
     default_branch: str,
@@ -280,26 +357,45 @@ def create_github_repository(
     runner(command, target_dir, None)
 
 
-def configure_aws_github_secrets(
-    target_dir: Path,
+def github_secrets_for_options(
     options: CreateOptions,
+    ec2_ssh_private_key_path: Path | None,
+) -> dict[str, str]:
+    secrets: dict[str, str] = {}
+
+    if ec2_ssh_private_key_path is not None:
+        if not ec2_ssh_private_key_path.is_file():
+            raise CreateError(f"Missing generated EC2 SSH private key: {ec2_ssh_private_key_path}")
+        secrets[EC2_SSH_SECRET_NAME] = ec2_ssh_private_key_path.read_text(encoding="utf-8")
+
+    if options.set_aws_secrets:
+        secrets.update(
+            read_aws_credentials(
+                profile=options.aws_profile,
+                credentials_file=options.aws_credentials_file,
+            )
+        )
+
+    return secrets
+
+
+def configure_github_secrets(
+    target_dir: Path,
+    secrets: Mapping[str, str],
     runner: CommandRunner,
 ) -> tuple[str, ...]:
-    """Copy AWS credentials from a local AWS profile into GitHub Actions secrets."""
+    """Copy secret values into GitHub Actions secrets for the generated repository."""
+
+    if not secrets:
+        return ()
 
     if shutil.which("gh") is None:
         raise CreateError(
             "GitHub CLI (`gh`) is required to configure repository secrets."
         )
 
-    secrets = read_aws_credentials(
-        profile=options.aws_profile,
-        credentials_file=options.aws_credentials_file,
-    )
-
     configured = []
-    for name in AWS_SECRET_NAMES:
-        value = secrets.get(name)
+    for name, value in secrets.items():
         if value:
             runner(
                 ["gh", "secret", "set", name],

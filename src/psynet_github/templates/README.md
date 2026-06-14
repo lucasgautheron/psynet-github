@@ -16,6 +16,8 @@ This repository contains a starter PsyNet experiment. It was generated with
 - `.github/workflows/deploy-hotair.yml` can provision EC2 and start a hotair
   debug deployment from a selected branch.
 - `deploy.txt` records the default deployment inputs generated for the workflow.
+- `.deploy/ssh/` stores the generated EC2 SSH keypair. This directory is
+  intentionally ignored by git.
 - `AGENTS.md` links PsyNetSkills guidance for future agent work.
 
 ## Local checks
@@ -48,11 +50,13 @@ for:
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `AWS_SESSION_TOKEN` if your AWS credentials require one
+- `EC2_SSH_PRIVATE_KEY`
 - `DALLINGER_DASHBOARD_USER`
 - `DALLINGER_DASHBOARD_PASSWORD`
 
-Also configure the `EC2_SSH_PRIVATE_KEY` secret if Dallinger should use a
-specific SSH private key for the EC2 server.
+`psynet-github create` generates a unique EC2 SSH keypair under `.deploy/ssh/`
+and, when it creates the GitHub repository, copies the private key into the
+`EC2_SSH_PRIVATE_KEY` GitHub Actions secret.
 
 If this repository was created with:
 
