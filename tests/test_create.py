@@ -79,8 +79,10 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "dallinger ec2 list instances --all" not in deploy_workflow
     assert "Verify SSH key for existing server" in deploy_workflow
     assert "Could not authenticate to the existing EC2 server" in deploy_workflow
-    assert "EC2_SSH_PRIVATE_KEY secret to the private key" in deploy_workflow
-    assert "Use a new server_name and dns_host" in deploy_workflow
+    assert "intentionally tear down the" in deploy_workflow
+    assert "Teardown existing EC2 server after SSH auth failure" in deploy_workflow
+    assert "dallinger ec2 teardown" in deploy_workflow
+    assert "steps.ssh_auth.outputs.recreate == 'true'" in deploy_workflow
     assert "Register Dallinger SSH server" in deploy_workflow
     assert "dallinger docker-ssh servers add" in deploy_workflow
     assert '--host "${{ inputs.dns_host }}"' in deploy_workflow

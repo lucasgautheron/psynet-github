@@ -76,6 +76,5 @@ app with `psynet destroy ssh`, and starts a fresh run with `psynet debug ssh`.
 
 If an existing EC2 server rejects SSH authentication, it was probably
 provisioned with a different private key than the current `EC2_SSH_PRIVATE_KEY`
-secret. In that case, either restore the original private key secret, use a new
-`server_name`/`dns_host` so the workflow provisions a fresh server, or
-intentionally tear down the old debug server before rerunning the workflow.
+secret. In that case, this workflow intentionally tears down the existing EC2
+server and provisions a fresh server with the configured key.

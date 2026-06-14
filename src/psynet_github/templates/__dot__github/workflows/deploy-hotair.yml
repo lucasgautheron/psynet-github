@@ -228,6 +228,7 @@ jobs:
           PY
 
       - name: Verify SSH key for existing server
+        id: ssh_auth
         if: ${{ steps.server.outputs.exists == 'true' }}
         run: |
           set -euo pipefail
@@ -244,6 +245,7 @@ jobs:
               "ubuntu@${{ inputs.dns_host }}" \
               true; then
               echo "Authenticated to existing EC2 server with EC2_SSH_PRIVATE_KEY."
+              echo "recreate=false" >> "${GITHUB_OUTPUT}"
               exit 0
             fi
             echo "Waiting for SSH authentication to existing server (${attempt}/12)..."
@@ -254,19 +256,25 @@ jobs:
           Could not authenticate to the existing EC2 server with EC2_SSH_PRIVATE_KEY.
 
           This usually means the server already existed and was provisioned with
-          a different SSH key. Recovery options:
-
-          1. Set the repository's EC2_SSH_PRIVATE_KEY secret to the private key
-             that originally provisioned this server.
-          2. Use a new server_name and dns_host so the workflow provisions a
-             fresh server with the generated key.
-          3. Intentionally tear down the old EC2 server, then rerun this workflow
-             so it can provision the server with the generated key.
+          a different SSH key. This workflow will intentionally tear down the
+          existing EC2 server and provision a fresh one with the configured key.
           EOF
-          exit 1
+
+          echo "recreate=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Teardown existing EC2 server after SSH auth failure
+        if: ${{ steps.ssh_auth.outputs.recreate == 'true' }}
+        run: |
+          set -euo pipefail
+          source .venv/bin/activate
+
+          dallinger ec2 teardown \
+            --name "${{ inputs.server_name }}" \
+            --region "${{ inputs.region }}" \
+            --dns-host "${{ inputs.dns_host }}"
 
       - name: Provision EC2 server if needed
-        if: ${{ steps.server.outputs.exists != 'true' }}
+        if: ${{ steps.server.outputs.exists != 'true' || steps.ssh_auth.outputs.recreate == 'true' }}
         run: |
           set -euo pipefail
           source .venv/bin/activate
