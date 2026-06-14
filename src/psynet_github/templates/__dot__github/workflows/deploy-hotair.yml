@@ -208,6 +208,22 @@ jobs:
             --type "${{ inputs.instance_type }}" \
             --storage "${{ inputs.memory_gb }}"
 
+      - name: Register Dallinger SSH server
+        run: |
+          set -euo pipefail
+          source .venv/bin/activate
+
+          # A fresh GitHub runner has an empty Dallinger SSH host registry.
+          # Register the DNS host even when EC2 provisioning was skipped because
+          # the instance already existed.
+          set +e
+          dallinger docker-ssh servers remove --host "${{ inputs.dns_host }}"
+          set -e
+
+          dallinger docker-ssh servers add \
+            --host "${{ inputs.dns_host }}" \
+            --user ubuntu
+
       - name: Stop existing debug run if present
         run: |
           set -euo pipefail
