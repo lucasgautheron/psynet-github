@@ -76,8 +76,9 @@ app with `psynet destroy ssh`, and starts a fresh run with `psynet debug ssh`.
 
 If an existing EC2 server rejects SSH authentication, it was probably
 provisioned with a different private key than the current `EC2_SSH_PRIVATE_KEY`
-secret. In that case, this workflow intentionally tears down the existing EC2
-server and provisions a fresh server with the configured key.
+secret. In that case, this workflow intentionally terminates the existing EC2
+instance directly, waits for termination, and provisions a fresh server with the
+configured key.
 Before provisioning, the workflow also deletes any existing AWS EC2 key pair
 with the configured `ssh_key_name` so Dallinger can import the public key that
 matches `EC2_SSH_PRIVATE_KEY`.

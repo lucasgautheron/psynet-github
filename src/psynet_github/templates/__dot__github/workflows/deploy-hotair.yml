@@ -262,16 +262,46 @@ jobs:
 
           echo "recreate=true" >> "${GITHUB_OUTPUT}"
 
-      - name: Teardown existing EC2 server after SSH auth failure
+      - name: Terminate existing EC2 server after SSH auth failure
         if: ${{ steps.ssh_auth.outputs.recreate == 'true' }}
         run: |
           set -euo pipefail
           source .venv/bin/activate
 
-          dallinger ec2 teardown \
-            --name "${{ inputs.server_name }}" \
-            --region "${{ inputs.region }}" \
-            --dns-host "${{ inputs.dns_host }}"
+          python3 - <<'PY'
+          import sys
+
+          import boto3
+
+          server_name = "${{ inputs.server_name }}"
+          region = "${{ inputs.region }}"
+
+          ec2 = boto3.client("ec2", region_name=region)
+          response = ec2.describe_instances(
+              Filters=[
+                  {"Name": "tag:Name", "Values": [server_name]},
+                  {
+                      "Name": "instance-state-name",
+                      "Values": ["pending", "running", "stopping", "stopped"],
+                  },
+              ]
+          )
+          instance_ids = [
+              instance["InstanceId"]
+              for reservation in response["Reservations"]
+              for instance in reservation["Instances"]
+          ]
+
+          if not instance_ids:
+              print(f"No active EC2 instances found with Name tag {server_name!r}.")
+              sys.exit(0)
+
+          print(f"Terminating EC2 instance(s) for {server_name!r}: {', '.join(instance_ids)}")
+          ec2.terminate_instances(InstanceIds=instance_ids)
+          waiter = ec2.get_waiter("instance_terminated")
+          waiter.wait(InstanceIds=instance_ids)
+          print("Existing EC2 instance(s) terminated.")
+          PY
 
       - name: Delete stale EC2 key pair before provisioning
         if: ${{ steps.server.outputs.exists != 'true' || steps.ssh_auth.outputs.recreate == 'true' }}
