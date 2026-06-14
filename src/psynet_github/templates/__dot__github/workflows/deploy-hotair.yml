@@ -184,7 +184,7 @@ jobs:
           set -euo pipefail
           source .venv/bin/activate
 
-          dallinger ec2 list instances --all --region "${{ inputs.region }}" > ec2-instances.txt
+          dallinger ec2 list instances --region "${{ inputs.region }}" > ec2-instances.txt
 
           python3 - <<'PY' >> "${GITHUB_OUTPUT}"
           from pathlib import Path
@@ -226,6 +226,41 @@ jobs:
             echo "No existing debug app '${{ inputs.app_name }}' was destroyed, or destroy reported a non-fatal failure."
           fi
 
+      - name: Configure hotair recruiter
+        run: |
+          set -euo pipefail
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("config.txt")
+          text = path.read_text(encoding="utf-8")
+          lines = text.splitlines()
+
+          in_config = False
+          replaced = False
+          output = []
+          for line in lines:
+              stripped = line.strip()
+              if stripped.startswith("[") and stripped.endswith("]"):
+                  if in_config and not replaced:
+                      output.append("recruiter = hotair")
+                      replaced = True
+                  in_config = stripped == "[Config]"
+              if in_config and stripped.startswith("recruiter"):
+                  output.append("recruiter = hotair")
+                  replaced = True
+              else:
+                  output.append(line)
+
+          if in_config and not replaced:
+              output.append("recruiter = hotair")
+          elif not replaced:
+              output.extend(["", "[Config]", "recruiter = hotair"])
+
+          path.write_text("\n".join(output) + "\n", encoding="utf-8")
+          PY
+
       - name: Start hotair debug run
         run: |
           set -euo pipefail
@@ -234,8 +269,7 @@ jobs:
           psynet debug ssh \
             --app "${{ inputs.app_name }}" \
             --dns-host "${{ inputs.dns_host }}" \
-            --server "${{ inputs.dns_host }}" \
-            --recruiter hotair
+            --server "${{ inputs.dns_host }}"
 
       - name: Write deployment summary
         if: ${{ always() }}

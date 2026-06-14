@@ -59,6 +59,8 @@ GitHub repository with `gh repo create`, and pushes the starter commit.
 It also generates a unique EC2 SSH key under the generated repository's
 git-ignored `.deploy/ssh/` directory and copies the private key into the
 `EC2_SSH_PRIVATE_KEY` GitHub Actions secret.
+The deployment dashboard credentials are also configured as GitHub Actions
+secrets, defaulting to `admin` / `admin`.
 Generated repositories also receive a local `.git/hooks/pre-commit` hook that
 rejects staged files containing private-key PEM/OpenSSH markers.
 
@@ -70,6 +72,9 @@ profile and stores them as `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and
 
 Use `--ec2-ssh-key-path` to choose a different private-key destination, or
 `--no-ec2-ssh-key` to skip EC2 key generation and secret configuration.
+Use `--dashboard-user` and `--dashboard-password` to override the default
+dashboard credentials stored in `DALLINGER_DASHBOARD_USER` and
+`DALLINGER_DASHBOARD_PASSWORD`.
 
 ## Generated experiment contents
 

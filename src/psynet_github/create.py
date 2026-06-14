@@ -20,6 +20,10 @@ AWS_SECRET_NAMES = (
     "AWS_SESSION_TOKEN",
 )
 EC2_SSH_SECRET_NAME = "EC2_SSH_PRIVATE_KEY"
+DASHBOARD_USER_SECRET_NAME = "DALLINGER_DASHBOARD_USER"
+DASHBOARD_PASSWORD_SECRET_NAME = "DALLINGER_DASHBOARD_PASSWORD"
+DEFAULT_DASHBOARD_USER = "admin"
+DEFAULT_DASHBOARD_PASSWORD = "admin"
 
 
 class CreateError(RuntimeError):
@@ -59,6 +63,8 @@ class CreateOptions:
     aws_credentials_file: Path | None = None
     generate_ec2_ssh_key: bool = True
     ec2_ssh_key_path: Path | None = None
+    dashboard_user: str = DEFAULT_DASHBOARD_USER
+    dashboard_password: str = DEFAULT_DASHBOARD_PASSWORD
 
 
 @dataclass(frozen=True)
@@ -395,7 +401,10 @@ def github_secrets_for_options(
     options: CreateOptions,
     ec2_ssh_private_key_path: Path | None,
 ) -> dict[str, str]:
-    secrets: dict[str, str] = {}
+    secrets: dict[str, str] = {
+        DASHBOARD_USER_SECRET_NAME: options.dashboard_user,
+        DASHBOARD_PASSWORD_SECRET_NAME: options.dashboard_password,
+    }
 
     if ec2_ssh_private_key_path is not None:
         if not ec2_ssh_private_key_path.is_file():
