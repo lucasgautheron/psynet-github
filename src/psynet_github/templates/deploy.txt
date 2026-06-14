@@ -1,0 +1,14 @@
+# Defaults for .github/workflows/deploy-hotair.yml.
+#
+# The workflow_dispatch form is pre-filled with these values when the
+# repository is generated. If you edit this file later, update the workflow input
+# defaults to match.
+
+region=us-east-1
+instance_type=m7i.xlarge
+memory_gb=32
+server_name={{repo_name}}-debug
+app_name={{repo_name}}-debug
+dns_host={{repo_name}}-debug.example.com
+ssh_key_name={{repo_name}}-ec2
+ssh_private_key_path=.deploy/ssh/{{repo_name}}-ec2.pem
