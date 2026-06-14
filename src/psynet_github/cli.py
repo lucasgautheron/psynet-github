@@ -6,7 +6,13 @@ from pathlib import Path
 from typing import Sequence
 
 from . import __version__
-from .create import CreateError, CreateOptions, create_experiment_repository
+from .create import (
+    DEFAULT_DASHBOARD_PASSWORD,
+    DEFAULT_DASHBOARD_USER,
+    CreateError,
+    CreateOptions,
+    create_experiment_repository,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -107,6 +113,22 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Do not generate an EC2 SSH key or configure EC2_SSH_PRIVATE_KEY.",
     )
+    create_parser.add_argument(
+        "--dashboard-user",
+        default=DEFAULT_DASHBOARD_USER,
+        help=(
+            "Dashboard username to configure as DALLINGER_DASHBOARD_USER. "
+            f"Defaults to {DEFAULT_DASHBOARD_USER!r}."
+        ),
+    )
+    create_parser.add_argument(
+        "--dashboard-password",
+        default=DEFAULT_DASHBOARD_PASSWORD,
+        help=(
+            "Dashboard password to configure as DALLINGER_DASHBOARD_PASSWORD. "
+            f"Defaults to {DEFAULT_DASHBOARD_PASSWORD!r}."
+        ),
+    )
     create_parser.set_defaults(func=run_create)
     return parser
 
@@ -130,6 +152,8 @@ def run_create(args: argparse.Namespace) -> int:
             aws_credentials_file=args.aws_credentials_file,
             generate_ec2_ssh_key=not args.no_ec2_ssh_key,
             ec2_ssh_key_path=args.ec2_ssh_key_path,
+            dashboard_user=args.dashboard_user,
+            dashboard_password=args.dashboard_password,
         )
     )
 

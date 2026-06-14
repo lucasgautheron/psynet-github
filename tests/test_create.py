@@ -71,9 +71,13 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     ).read_text(encoding="utf-8")
     assert "deploy_ref" in deploy_workflow
     assert "dallinger ec2 provision" in deploy_workflow
+    assert 'dallinger ec2 list instances --region "${{ inputs.region }}"' in deploy_workflow
+    assert "dallinger ec2 list instances --all" not in deploy_workflow
     assert "psynet destroy ssh" in deploy_workflow
     assert "psynet debug ssh" in deploy_workflow
-    assert "--recruiter hotair" in deploy_workflow
+    assert "Configure hotair recruiter" in deploy_workflow
+    assert "recruiter = hotair" in deploy_workflow
+    assert "--recruiter" not in deploy_workflow
     assert "EC2_SSH_PRIVATE_KEY" in deploy_workflow
 
 
@@ -194,6 +198,8 @@ def test_create_sets_aws_secrets_from_credentials_file(tmp_path, monkeypatch):
     )
 
     assert result.configured_secrets == (
+        "DALLINGER_DASHBOARD_USER",
+        "DALLINGER_DASHBOARD_PASSWORD",
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
         "AWS_SESSION_TOKEN",
@@ -202,6 +208,10 @@ def test_create_sets_aws_secrets_from_credentials_file(tmp_path, monkeypatch):
         (["gh", "secret", "set", "AWS_ACCESS_KEY_ID"], target_dir, "key"),
         (["gh", "secret", "set", "AWS_SECRET_ACCESS_KEY"], target_dir, "secret"),
         (["gh", "secret", "set", "AWS_SESSION_TOKEN"], target_dir, "token"),
+    ]
+    assert commands[4:6] == [
+        (["gh", "secret", "set", "DALLINGER_DASHBOARD_USER"], target_dir, "admin"),
+        (["gh", "secret", "set", "DALLINGER_DASHBOARD_PASSWORD"], target_dir, "admin"),
     ]
     assert commands[3][0][:3] == ["gh", "repo", "create"]
 
@@ -250,7 +260,11 @@ def test_create_generates_ec2_ssh_key_and_sets_github_secret(tmp_path, monkeypat
 
     private_key_path = target_dir / ".deploy" / "ssh" / "starter-ec2.pem"
     assert result.ec2_ssh_private_key_path == private_key_path
-    assert result.configured_secrets == ("EC2_SSH_PRIVATE_KEY",)
+    assert result.configured_secrets == (
+        "DALLINGER_DASHBOARD_USER",
+        "DALLINGER_DASHBOARD_PASSWORD",
+        "EC2_SSH_PRIVATE_KEY",
+    )
     assert (target_dir / ".git" / "hooks" / "pre-commit").exists()
     assert private_key_path.read_text(encoding="utf-8") == "PRIVATE KEY\n"
     assert (target_dir / ".deploy" / "ssh" / "starter-ec2.pem.pub").exists()
@@ -258,8 +272,12 @@ def test_create_generates_ec2_ssh_key_and_sets_github_secret(tmp_path, monkeypat
     assert commands[0][0][:2] == ["ssh-keygen", "-q"]
     assert commands[1][0] == ["git", "init", "-b", "main"]
     assert commands[4][0][:3] == ["gh", "repo", "create"]
-    assert commands[-1] == (
-        ["gh", "secret", "set", "EC2_SSH_PRIVATE_KEY"],
-        target_dir,
-        "PRIVATE KEY\n",
-    )
+    assert commands[-3:] == [
+        (["gh", "secret", "set", "DALLINGER_DASHBOARD_USER"], target_dir, "admin"),
+        (["gh", "secret", "set", "DALLINGER_DASHBOARD_PASSWORD"], target_dir, "admin"),
+        (
+            ["gh", "secret", "set", "EC2_SSH_PRIVATE_KEY"],
+            target_dir,
+            "PRIVATE KEY\n",
+        ),
+    ]
