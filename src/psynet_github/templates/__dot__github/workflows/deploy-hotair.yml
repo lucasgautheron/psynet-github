@@ -184,7 +184,7 @@ jobs:
           set -euo pipefail
           source .venv/bin/activate
 
-          dallinger ec2 list instances --all --region "${{ inputs.region }}" > ec2-instances.txt
+          dallinger ec2 list instances --region "${{ inputs.region }}" > ec2-instances.txt
 
           python3 - <<'PY' >> "${GITHUB_OUTPUT}"
           from pathlib import Path

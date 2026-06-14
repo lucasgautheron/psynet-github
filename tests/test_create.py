@@ -71,6 +71,8 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     ).read_text(encoding="utf-8")
     assert "deploy_ref" in deploy_workflow
     assert "dallinger ec2 provision" in deploy_workflow
+    assert 'dallinger ec2 list instances --region "${{ inputs.region }}"' in deploy_workflow
+    assert "dallinger ec2 list instances --all" not in deploy_workflow
     assert "psynet destroy ssh" in deploy_workflow
     assert "psynet debug ssh" in deploy_workflow
     assert "--recruiter hotair" in deploy_workflow
