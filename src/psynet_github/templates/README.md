@@ -73,3 +73,8 @@ Actions secrets during repository creation.
 The workflow checks whether the configured EC2 server already exists, provisions
 it with `dallinger ec2 provision` if needed, attempts to stop an existing debug
 app with `psynet destroy ssh`, and starts a fresh run with `psynet debug ssh`.
+
+If an existing EC2 server rejects SSH authentication, it was probably
+provisioned with a different private key than the current `EC2_SSH_PRIVATE_KEY`
+secret. In that case, this workflow intentionally tears down the existing EC2
+server and provisions a fresh server with the configured key.

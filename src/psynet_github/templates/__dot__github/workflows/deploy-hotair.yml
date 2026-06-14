@@ -227,8 +227,54 @@ jobs:
           print(f"exists={'true' if exists else 'false'}")
           PY
 
+      - name: Verify SSH key for existing server
+        id: ssh_auth
+        if: ${{ steps.server.outputs.exists == 'true' }}
+        run: |
+          set -euo pipefail
+
+          key_path="${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem"
+          for attempt in {1..12}; do
+            if ssh \
+              -i "${key_path}" \
+              -o BatchMode=yes \
+              -o ConnectTimeout=10 \
+              -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              "ubuntu@${{ inputs.dns_host }}" \
+              true; then
+              echo "Authenticated to existing EC2 server with EC2_SSH_PRIVATE_KEY."
+              echo "recreate=false" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+            echo "Waiting for SSH authentication to existing server (${attempt}/12)..."
+            sleep 10
+          done
+
+          cat >&2 <<'EOF'
+          Could not authenticate to the existing EC2 server with EC2_SSH_PRIVATE_KEY.
+
+          This usually means the server already existed and was provisioned with
+          a different SSH key. This workflow will intentionally tear down the
+          existing EC2 server and provision a fresh one with the configured key.
+          EOF
+
+          echo "recreate=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Teardown existing EC2 server after SSH auth failure
+        if: ${{ steps.ssh_auth.outputs.recreate == 'true' }}
+        run: |
+          set -euo pipefail
+          source .venv/bin/activate
+
+          dallinger ec2 teardown \
+            --name "${{ inputs.server_name }}" \
+            --region "${{ inputs.region }}" \
+            --dns-host "${{ inputs.dns_host }}"
+
       - name: Provision EC2 server if needed
-        if: ${{ steps.server.outputs.exists != 'true' }}
+        if: ${{ steps.server.outputs.exists != 'true' || steps.ssh_auth.outputs.recreate == 'true' }}
         run: |
           set -euo pipefail
           source .venv/bin/activate
