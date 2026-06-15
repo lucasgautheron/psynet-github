@@ -463,6 +463,11 @@ jobs:
           PY
 
       - name: Start hotair debug run
+        env:
+          # The starter template defaults to PsyNet's GitLab master branch for
+          # convenience. This debug workflow permits that unpinned dependency;
+          # use `psynet-github create --psynet-version ...` for pinned runs.
+          SKIP_CHECK_PSYNET_VERSION_REQUIREMENT: "1"
         run: |
           set -euo pipefail
           source .venv/bin/activate
