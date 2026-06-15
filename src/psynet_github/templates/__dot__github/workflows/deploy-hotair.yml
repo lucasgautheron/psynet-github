@@ -43,6 +43,16 @@ on:
         required: true
         default: "{{repo_name}}-ec2"
         type: string
+      docker_cleanup:
+        description: "Prune stopped containers, dangling images, and old Docker build cache after deployment"
+        required: true
+        default: true
+        type: boolean
+      docker_builder_cache_until:
+        description: "Age filter for Docker builder cache cleanup"
+        required: true
+        default: "24h"
+        type: string
 
 permissions:
   contents: read
@@ -484,6 +494,21 @@ jobs:
             --app "${{ inputs.app_name }}" \
             --dns-host "${{ inputs.dns_host }}" \
             --server "${{ inputs.dns_host }}"
+
+      - name: Cleanup remote Docker artifacts
+        if: ${{ inputs.docker_cleanup }}
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=10 \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            "ubuntu@${{ inputs.dns_host }}" \
+            "docker container prune -f || true; docker image prune -f || true; docker builder prune -f --filter 'until=${{ inputs.docker_builder_cache_until }}' || true"
 
       - name: Write deployment summary
         if: ${{ always() }}

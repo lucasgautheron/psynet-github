@@ -137,6 +137,12 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "Dallinger's Docker-SSH path calls ssh-add internally" in deploy_workflow
     assert "SKIP_CHECK_PSYNET_VERSION_REQUIREMENT" in deploy_workflow
     assert "SKIP_VERSION_CHECK" in deploy_workflow
+    assert "docker_cleanup" in deploy_workflow
+    assert "docker_builder_cache_until" in deploy_workflow
+    assert "Cleanup remote Docker artifacts" in deploy_workflow
+    assert "docker container prune -f" in deploy_workflow
+    assert "docker image prune -f" in deploy_workflow
+    assert "docker builder prune -f --filter" in deploy_workflow
     assert "Configure hotair recruiter" in deploy_workflow
     assert "recruiter = hotair" in deploy_workflow
     assert "--recruiter" not in deploy_workflow
