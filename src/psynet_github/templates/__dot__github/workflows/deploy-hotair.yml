@@ -73,6 +73,19 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dallinger
+          POSTGRES_PASSWORD: dallinger
+          POSTGRES_DB: dallinger
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dallinger -d dallinger"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
     steps:
       - name: Checkout selected ref
         uses: actions/checkout@v4
@@ -134,6 +147,28 @@ jobs:
           done
 
           echo "Redis did not become available on localhost:6379." >&2
+          exit 1
+
+      - name: Verify PostgreSQL is available
+        run: |
+          set -euo pipefail
+
+          for attempt in {1..30}; do
+            if python3 - <<'PY'
+          import socket
+
+          with socket.create_connection(("127.0.0.1", 5432), timeout=1):
+              pass
+          PY
+            then
+              echo "PostgreSQL is accepting connections."
+              exit 0
+            fi
+            echo "Waiting for PostgreSQL on localhost:5432 (${attempt}/30)..."
+            sleep 2
+          done
+
+          echo "PostgreSQL did not become available on localhost:5432." >&2
           exit 1
 
       - name: Configure Dallinger and AWS environment

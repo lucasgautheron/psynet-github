@@ -81,6 +81,13 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "6379:6379" in deploy_workflow
     assert "Verify Redis is available" in deploy_workflow
     assert 'socket.create_connection(("127.0.0.1", 6379)' in deploy_workflow
+    assert "image: postgres:16" in deploy_workflow
+    assert "POSTGRES_USER: dallinger" in deploy_workflow
+    assert "POSTGRES_PASSWORD: dallinger" in deploy_workflow
+    assert "POSTGRES_DB: dallinger" in deploy_workflow
+    assert "5432:5432" in deploy_workflow
+    assert "Verify PostgreSQL is available" in deploy_workflow
+    assert 'socket.create_connection(("127.0.0.1", 5432)' in deploy_workflow
     assert "dallinger ec2 provision" in deploy_workflow
     assert 'dallinger ec2 list instances --region "${{ inputs.region }}"' in deploy_workflow
     assert "dallinger ec2 list instances --all" not in deploy_workflow
