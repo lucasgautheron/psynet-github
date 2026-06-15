@@ -46,9 +46,10 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert result.initialized_git is False
     assert result.pushed_to_github is False
 
-    assert (target_dir / "experiment.py").read_text(encoding="utf-8").startswith(
-        '"""Empty PsyNet experiment scaffold'
-    )
+    experiment_text = (target_dir / "experiment.py").read_text(encoding="utf-8")
+    assert experiment_text.startswith('"""Empty PsyNet experiment scaffold')
+    assert "from psynet.consent import NoConsent" in experiment_text
+    assert "NoConsent()," in experiment_text
     assert (target_dir / ".gitignore").exists()
     assert ".deploy/" in (target_dir / ".gitignore").read_text(encoding="utf-8")
     assert (target_dir / ".github" / "workflows" / "test.yml").exists()
