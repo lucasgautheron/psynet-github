@@ -273,14 +273,13 @@ jobs:
 
           run_id=""
           for attempt in {1..30}; do
-            run_id="$(gh run list \
+            runs_json="$(gh run list \
               --repo "${full_repo}" \
               --workflow deploy-hotair.yml \
               --branch main \
               --limit 5 \
-              --json databaseId \
-              --jq --arg previous_run_id "${previous_run_id}" \
-              'map(select((.databaseId | tostring) != $previous_run_id)) | .[0].databaseId // ""')"
+              --json databaseId)"
+            run_id="$(RUNS_JSON="${runs_json}" PREVIOUS_RUN_ID="${previous_run_id}" python3 -c 'import json, os; previous = os.environ.get("PREVIOUS_RUN_ID", ""); print(next((run_id for run_id in (str(run.get("databaseId") or "") for run in json.loads(os.environ["RUNS_JSON"])) if run_id and run_id != previous), ""))')"
             if [ -n "${run_id}" ] && [ "${run_id}" != "${previous_run_id}" ]; then
               break
             fi
