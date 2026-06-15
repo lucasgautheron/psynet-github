@@ -208,6 +208,8 @@ jobs:
           chmod 600 "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem"
           ssh-keygen -y -f "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem" > "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem.pub"
           cp "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem.pub" "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pub"
+          eval "$(ssh-agent -s)"
+          ssh-add "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem"
 
           touch "${HOME}/.ssh/known_hosts"
 
