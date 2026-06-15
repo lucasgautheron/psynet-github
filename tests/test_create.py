@@ -91,7 +91,8 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "InvalidKeyPair.NotFound" in deploy_workflow
     assert "Dallinger will import the public key matching EC2_SSH_PRIVATE_KEY" in deploy_workflow
     assert "Confirm Dallinger's overwrite prompt non-interactively" in deploy_workflow
-    assert "yes y | dallinger ec2 provision" in deploy_workflow
+    assert "printf 'y\\n' | dallinger ec2 provision" in deploy_workflow
+    assert "yes y | dallinger ec2 provision" not in deploy_workflow
     assert "Register Dallinger SSH server" in deploy_workflow
     assert "dallinger docker-ssh servers add" in deploy_workflow
     assert '--host "${{ inputs.dns_host }}"' in deploy_workflow
