@@ -11,6 +11,7 @@ This repository contains a starter PsyNet experiment. It was generated with
 - `config.txt` contains Dallinger/PsyNet configuration.
 - `requirements.txt` pins PsyNet from GitLab.
 - `constraints.txt` is present for Dallinger dependency locking workflows.
+- `Dockerfile` supports PsyNet/Dallinger SSH deployments.
 - `test.py` runs the standard PsyNet experiment test through pytest.
 - `.github/workflows/test.yml` runs a basic GitHub Actions test suite.
 - `.github/workflows/deploy-hotair.yml` can provision EC2 and start a hotair
