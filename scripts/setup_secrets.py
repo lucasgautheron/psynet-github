@@ -19,6 +19,8 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 
 def main() -> int:
@@ -29,6 +31,7 @@ def main() -> int:
         profile=args.aws_profile,
     )
     github_token = resolve_github_token(args)
+    validate_github_token_for_workflow_push(github_token, skip=args.skip_token_scope_check)
 
     set_secret(repo, "PSYNET_GITHUB_TEST_TOKEN", github_token)
     set_secret(repo, "AWS_ACCESS_KEY_ID", aws_credentials["AWS_ACCESS_KEY_ID"])
@@ -76,17 +79,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--github-token-env",
         default="GITHUB_TOKEN",
-        help="Environment variable containing the GitHub token to store as PSYNET_GITHUB_TEST_TOKEN.",
+        help=(
+            "Environment variable containing the GitHub token to store as "
+            "PSYNET_GITHUB_TEST_TOKEN. Ignored when --use-gh-token or "
+            "--github-token-stdin is used."
+        ),
     )
     parser.add_argument(
         "--use-gh-token",
         action="store_true",
-        help="Use `gh auth token` as PSYNET_GITHUB_TEST_TOKEN if --github-token-env is unset.",
+        help="Use `gh auth token` as PSYNET_GITHUB_TEST_TOKEN.",
     )
     parser.add_argument(
         "--github-token-stdin",
         action="store_true",
         help="Read PSYNET_GITHUB_TEST_TOKEN from stdin.",
+    )
+    parser.add_argument(
+        "--skip-token-scope-check",
+        action="store_true",
+        help=(
+            "Skip checking whether the token can push workflow files. Use only "
+            "for fine-grained tokens or GitHub App tokens you have already verified."
+        ),
     )
     parser.add_argument(
         "--test-owner",
@@ -164,9 +179,10 @@ def resolve_github_token(args: argparse.Namespace) -> str:
     if args.github_token_stdin:
         token = sys.stdin.read().strip()
     else:
-        token = os.environ.get(args.github_token_env, "").strip()
-        if not token and args.use_gh_token:
+        if args.use_gh_token:
             token = run(["gh", "auth", "token"], capture=True).stdout.strip()
+        else:
+            token = os.environ.get(args.github_token_env, "").strip()
         if not token:
             token = getpass.getpass(
                 "GitHub token for disposable repo creation/deletion and secret setup: "
@@ -175,6 +191,45 @@ def resolve_github_token(args: argparse.Namespace) -> str:
     if not token:
         raise SystemExit("A GitHub token is required.")
     return token
+
+
+def validate_github_token_for_workflow_push(token: str, *, skip: bool = False) -> None:
+    if skip:
+        return
+
+    request = Request(
+        "https://api.github.com/user",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    try:
+        with urlopen(request, timeout=20) as response:
+            scopes = response.headers.get("X-OAuth-Scopes", "")
+    except URLError as exc:
+        raise SystemExit(f"Could not validate GitHub token scopes: {exc}") from exc
+
+    if not scopes:
+        print(
+            "GitHub token did not report classic OAuth scopes; assuming it is a "
+            "fine-grained token or GitHub App token with suitable workflow permissions."
+        )
+        return
+
+    parsed_scopes = parse_oauth_scopes(scopes)
+    if "workflow" not in parsed_scopes:
+        raise SystemExit(
+            "GitHub token is missing the classic-token 'workflow' scope. "
+            "GitHub rejects pushes that create or update .github/workflows/* "
+            "without this scope. Run:\n\n"
+            "  gh auth refresh -s workflow\n\n"
+            "Then rerun scripts/setup_secrets.py."
+        )
+
+
+def parse_oauth_scopes(scopes: str) -> set[str]:
+    return {scope.strip() for scope in scopes.split(",") if scope.strip()}
 
 
 def set_secret(repo: str, name: str, value: str) -> None:
