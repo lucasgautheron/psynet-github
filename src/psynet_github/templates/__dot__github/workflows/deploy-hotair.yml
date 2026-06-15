@@ -417,7 +417,7 @@ jobs:
           source .venv/bin/activate
 
           set +e
-          psynet destroy ssh \
+          printf 'y\n' | psynet destroy ssh \
             --app "${{ inputs.app_name }}" \
             --server "${{ inputs.dns_host }}"
           status=$?
