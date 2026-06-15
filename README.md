@@ -120,9 +120,10 @@ python scripts/setup_secrets.py \
 ```
 
 The fixed integration repository defaults to `psynet-github-integration` under
-`PSYNET_GITHUB_TEST_OWNER` or this repository's owner. Create that repository
-once before running the workflow. The stored `PSYNET_GITHUB_TEST_TOKEN` must be
-able to push to that repository and configure secrets in it. For a classic
+`PSYNET_GITHUB_TEST_OWNER` or this repository's owner. The integration workflow
+creates that repository on first run if it does not exist, then keeps reusing it.
+The stored `PSYNET_GITHUB_TEST_TOKEN` must be able to create the fixed
+repository if missing, push to it, and configure secrets in it. For a classic
 GitHub token, this typically means `repo`; add `workflow` if template updates
 need to create or update `.github/workflows/deploy-hotair.yml`. If you do not
 configure `--dns-domain`, provide `dns_host` or `dns_domain` when manually

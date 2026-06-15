@@ -175,12 +175,22 @@ jobs:
           } > "${HOME}/.aws/credentials"
           chmod 600 "${HOME}/.aws/credentials"
 
-      - name: Clone fixed integration repository
+      - name: Ensure and clone fixed integration repository
         run: |
           set -euo pipefail
+          full_repo="${{ steps.plan.outputs.full_repo }}"
+
           gh auth setup-git
-          gh repo view "${{ steps.plan.outputs.full_repo }}" >/dev/null
-          gh repo clone "${{ steps.plan.outputs.full_repo }}" "${RUNNER_TEMP}/${{ steps.plan.outputs.repo_name }}"
+          if gh repo view "${full_repo}" >/dev/null 2>&1; then
+            echo "Using existing integration repository ${full_repo}."
+          else
+            echo "Creating fixed integration repository ${full_repo}."
+            gh repo create "${full_repo}" \
+              --private \
+              --description "Fixed psynet-github integration test repository" \
+              --confirm
+          fi
+          gh repo clone "${full_repo}" "${RUNNER_TEMP}/${{ steps.plan.outputs.repo_name }}"
 
       - name: Render generated experiment into fixed repository
         run: |
