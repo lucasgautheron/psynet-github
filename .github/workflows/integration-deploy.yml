@@ -237,6 +237,14 @@ jobs:
         run: |
           set -euo pipefail
           full_repo="${{ steps.plan.outputs.full_repo }}"
+          previous_run_id="$(gh run list \
+            --repo "${full_repo}" \
+            --workflow deploy-hotair.yml \
+            --branch main \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId // ""')"
+          echo "Previous generated deploy workflow run: ${previous_run_id:-none}"
 
           dispatched=false
           for attempt in {1..30}; do
@@ -269,13 +277,14 @@ jobs:
               --repo "${full_repo}" \
               --workflow deploy-hotair.yml \
               --branch main \
-              --limit 1 \
+              --limit 5 \
               --json databaseId \
-              --jq '.[0].databaseId // ""')"
-            if [ -n "${run_id}" ]; then
+              --jq --arg previous_run_id "${previous_run_id}" \
+              'map(select((.databaseId | tostring) != $previous_run_id)) | .[0].databaseId // ""')"
+            if [ -n "${run_id}" ] && [ "${run_id}" != "${previous_run_id}" ]; then
               break
             fi
-            echo "Waiting for generated deploy workflow run to appear (${attempt}/30)..."
+            echo "Waiting for newly dispatched generated deploy workflow run to appear (${attempt}/30)..."
             sleep 5
           done
 

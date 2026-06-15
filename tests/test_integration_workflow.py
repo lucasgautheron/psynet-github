@@ -20,6 +20,8 @@ def test_integration_workflow_exercises_generated_deploy_pipeline():
     assert "--no-git" in text
     assert "Configure generated repository secrets" in text
     assert "Push rendered template updates" in text
+    assert "previous_run_id" in text
+    assert "Waiting for newly dispatched generated deploy workflow run" in text
     assert "gh workflow run deploy-hotair.yml" in text
     assert "gh run watch" in text
     assert "Dump generated deployment workflow logs" in text
