@@ -43,11 +43,10 @@ Pin a specific PsyNet package version in the generated experiment:
 psynet-github create my-psynet-experiment --psynet-version 13.3.0a0
 ```
 
-When `--psynet-version` is supplied, `psynet-github` installs that PsyNet version
-in a temporary environment and runs that version's `psynet update-scripts` in the
-generated repository. Without `--psynet-version`, the bundled psynet-github
-templates are used unchanged and `requirements.txt` points to PsyNet's GitLab
-`master` branch.
+When `--psynet-version` is supplied, `psynet-github` pins that version in the
+generated `requirements.txt`. The bundled psynet-github script templates are
+otherwise used unchanged. Without `--psynet-version`, `requirements.txt` points
+to PsyNet's GitLab `master` branch.
 
 Render the template locally without creating a GitHub repository:
 

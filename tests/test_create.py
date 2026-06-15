@@ -155,31 +155,23 @@ def test_create_initializes_git_when_github_is_skipped(tmp_path):
 
 def test_create_renders_selected_psynet_version(tmp_path):
     target_dir = tmp_path / "starter"
-    commands = []
 
-    def runner(command, cwd, input_text=None):
-        commands.append((list(command), Path(cwd) if cwd else None, input_text))
-
-    result = create_experiment_repository(
+    create_experiment_repository(
         CreateOptions(
             repository="starter",
             directory=target_dir,
             no_git=True,
             generate_ec2_ssh_key=False,
             psynet_version="13.3.0a0",
-        ),
-        runner=runner,
+        )
     )
 
-    assert result.updated_psynet_scripts is True
     assert (
         target_dir / "requirements.txt"
     ).read_text(encoding="utf-8").strip() == "psynet==13.3.0a0"
     assert "Generated PsyNet dependency: PsyNet 13.3.0a0." in (
         target_dir / "README.md"
     ).read_text(encoding="utf-8")
-    assert any(command[-1] == "psynet==13.3.0a0" for command, _, _ in commands)
-    assert any(command[-1] == "update-scripts" and cwd == target_dir for command, cwd, _ in commands)
 
 
 def test_create_fails_for_non_empty_directory_without_force(tmp_path):

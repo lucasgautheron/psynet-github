@@ -166,8 +166,6 @@ def run_create(args: argparse.Namespace) -> int:
     )
 
     print(f"Created PsyNet experiment template in {result.directory}")
-    if result.updated_psynet_scripts:
-        print("Updated PsyNet scripts using the selected PsyNet version.")
     if result.ec2_ssh_private_key_path:
         print(f"Generated EC2 SSH private key at {result.ec2_ssh_private_key_path}.")
     if result.initialized_git:
