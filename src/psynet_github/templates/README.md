@@ -5,6 +5,8 @@
 This repository contains a starter PsyNet experiment. It was generated with
 `psynet-github create`.
 
+Generated PsyNet dependency: {{psynet_version_description}}.
+
 ## Repository layout
 
 - `experiment.py` defines the PsyNet experiment.

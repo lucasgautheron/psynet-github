@@ -37,6 +37,12 @@ Create a public repository:
 psynet-github create my-psynet-experiment --public
 ```
 
+Pin a specific PsyNet package version in the generated experiment:
+
+```bash
+psynet-github create my-psynet-experiment --psynet-version 13.3.0a0
+```
+
 Render the template locally without creating a GitHub repository:
 
 ```bash

@@ -80,6 +80,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Allow writing template files into an existing non-empty directory.",
     )
     create_parser.add_argument(
+        "--psynet-version",
+        help=(
+            "PsyNet package version to pin in the generated requirements.txt, "
+            "for example 13.3.0a0. Defaults to the PsyNet GitLab master branch."
+        ),
+    )
+    create_parser.add_argument(
         "--set-aws-secrets",
         action="store_true",
         help=(
@@ -147,6 +154,7 @@ def run_create(args: argparse.Namespace) -> int:
             no_github=no_github,
             no_git=args.no_git,
             force=args.force,
+            psynet_version=args.psynet_version,
             set_aws_secrets=args.set_aws_secrets,
             aws_profile=args.aws_profile,
             aws_credentials_file=args.aws_credentials_file,

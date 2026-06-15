@@ -24,6 +24,7 @@ DASHBOARD_USER_SECRET_NAME = "DALLINGER_DASHBOARD_USER"
 DASHBOARD_PASSWORD_SECRET_NAME = "DALLINGER_DASHBOARD_PASSWORD"
 DEFAULT_DASHBOARD_USER = "admin"
 DEFAULT_DASHBOARD_PASSWORD = "admin"
+DEFAULT_PSYNET_REQUIREMENT = "psynet@git+https://gitlab.com/PsyNetDev/PsyNet@master#egg=psynet"
 
 
 class CreateError(RuntimeError):
@@ -65,6 +66,7 @@ class CreateOptions:
     ec2_ssh_key_path: Path | None = None
     dashboard_user: str = DEFAULT_DASHBOARD_USER
     dashboard_password: str = DEFAULT_DASHBOARD_PASSWORD
+    psynet_version: str | None = None
 
 
 @dataclass(frozen=True)
@@ -107,6 +109,8 @@ def create_experiment_repository(
             "description": options.description
             or "A starter PsyNet experiment created with psynet-github.",
             "default_branch": options.default_branch,
+            "psynet_requirement": psynet_requirement(options.psynet_version),
+            "psynet_version_description": psynet_version_description(options.psynet_version),
         },
         force=options.force,
     )
@@ -254,6 +258,18 @@ def replace_tokens(text: str, context: Mapping[str, str]) -> str:
 def humanize_repo_name(name: str) -> str:
     words = re.split(r"[-_]+", name)
     return " ".join(word.capitalize() for word in words if word) or name
+
+
+def psynet_requirement(version: str | None) -> str:
+    if version is None or not version.strip():
+        return DEFAULT_PSYNET_REQUIREMENT
+    return f"psynet=={version.strip()}"
+
+
+def psynet_version_description(version: str | None) -> str:
+    if version is None or not version.strip():
+        return "PsyNet from the GitLab master branch"
+    return f"PsyNet {version.strip()}"
 
 
 def default_ec2_ssh_key_name(repository: RepositorySpec) -> str:
