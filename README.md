@@ -109,6 +109,7 @@ pipeline:
 Configure the required secrets from a local clone with:
 
 ```bash
+gh auth refresh -s workflow
 python scripts/setup_secrets.py \
   --repo OWNER/psynet-github \
   --aws-profile default \
@@ -121,3 +122,7 @@ repositories and configure secrets in those repositories. For a classic GitHub
 token, this typically means `repo`, `workflow`, and `delete_repo` scopes. If you
 do not configure `--dns-domain`, provide `dns_host` or `dns_domain` when manually
 dispatching the workflow.
+
+The `workflow` scope is required because the disposable generated repository
+contains `.github/workflows/deploy-hotair.yml`; GitHub rejects pushes that create
+or update workflow files without it.

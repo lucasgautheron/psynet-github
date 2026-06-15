@@ -9,6 +9,8 @@ def test_integration_workflow_exercises_generated_deploy_pipeline():
 
     assert "workflow_dispatch:" in text
     assert "PSYNET_GITHUB_TEST_TOKEN" in text
+    assert "PSYNET_GITHUB_TEST_TOKEN is missing the classic-token 'workflow' scope" in text
+    assert "gh auth refresh -s workflow" in text
     assert "Configure git author" in text
     assert 'git config --global user.name "psynet-github integration"' in text
     assert "psynet-github-integration@users.noreply.github.com" in text

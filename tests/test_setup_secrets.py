@@ -1,4 +1,5 @@
 import importlib.util
+import argparse
 from pathlib import Path
 
 
@@ -43,3 +44,32 @@ def test_setup_secrets_reads_aws_credentials_profiles(tmp_path):
         "AWS_SECRET_ACCESS_KEY": "workshop-secret",
         "AWS_SESSION_TOKEN": "workshop-token",
     }
+
+
+def test_setup_secrets_parses_oauth_scopes():
+    setup_secrets = load_setup_secrets_module()
+
+    assert setup_secrets.parse_oauth_scopes("repo, workflow, delete_repo") == {
+        "repo",
+        "workflow",
+        "delete_repo",
+    }
+
+
+def test_use_gh_token_takes_precedence_over_env(monkeypatch):
+    setup_secrets = load_setup_secrets_module()
+
+    def fake_run(command, *, capture=False, **kwargs):
+        assert command == ["gh", "auth", "token"]
+        return argparse.Namespace(stdout="gh-token\n")
+
+    monkeypatch.setenv("GITHUB_TOKEN", "env-token")
+    monkeypatch.setattr(setup_secrets, "run", fake_run)
+
+    args = argparse.Namespace(
+        github_token_stdin=False,
+        github_token_env="GITHUB_TOKEN",
+        use_gh_token=True,
+    )
+
+    assert setup_secrets.resolve_github_token(args) == "gh-token"
