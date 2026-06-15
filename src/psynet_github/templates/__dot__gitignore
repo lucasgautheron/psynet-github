@@ -14,6 +14,7 @@ venv/
 logs/
 data/
 output/
+source_code.zip
 .dallinger/
 local_parameters.json
 *.sqlite

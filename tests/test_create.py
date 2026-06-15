@@ -51,7 +51,9 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "from psynet.consent import NoConsent" in experiment_text
     assert "NoConsent()," in experiment_text
     assert (target_dir / ".gitignore").exists()
-    assert ".deploy/" in (target_dir / ".gitignore").read_text(encoding="utf-8")
+    gitignore_text = (target_dir / ".gitignore").read_text(encoding="utf-8")
+    assert ".deploy/" in gitignore_text
+    assert "source_code.zip" in gitignore_text
     assert (target_dir / ".github" / "workflows" / "test.yml").exists()
     assert (target_dir / ".github" / "workflows" / "deploy-hotair.yml").exists()
     assert "PsyNetSkills" in (target_dir / "AGENTS.md").read_text(encoding="utf-8")
