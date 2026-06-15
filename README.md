@@ -37,6 +37,17 @@ Create a public repository:
 psynet-github create my-psynet-experiment --public
 ```
 
+Pin a specific PsyNet package version in the generated experiment:
+
+```bash
+psynet-github create my-psynet-experiment --psynet-version 13.3.0a0
+```
+
+When `--psynet-version` is supplied, `psynet-github` pins that version in the
+generated `requirements.txt`. The bundled psynet-github script templates are
+otherwise used unchanged. Without `--psynet-version`, `requirements.txt` points
+to PsyNet's GitLab `master` branch.
+
 Render the template locally without creating a GitHub repository:
 
 ```bash

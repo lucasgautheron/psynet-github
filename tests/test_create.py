@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from psynet_github.create import (
+    DEFAULT_PSYNET_REQUIREMENT,
     CreateError,
     CreateOptions,
     create_experiment_repository,
@@ -46,6 +47,9 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert result.initialized_git is False
     assert result.pushed_to_github is False
 
+    assert (
+        target_dir / "requirements.txt"
+    ).read_text(encoding="utf-8").strip() == DEFAULT_PSYNET_REQUIREMENT
     experiment_text = (target_dir / "experiment.py").read_text(encoding="utf-8")
     assert experiment_text.startswith('"""Empty PsyNet experiment scaffold')
     assert "from psynet.consent import NoConsent" in experiment_text
@@ -62,6 +66,9 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert (target_dir / ".github" / "workflows" / "deploy-hotair.yml").exists()
     assert "PsyNetSkills" in (target_dir / "AGENTS.md").read_text(encoding="utf-8")
     assert "A generated PsyNet experiment." in (
+        target_dir / "README.md"
+    ).read_text(encoding="utf-8")
+    assert "PsyNet from the GitLab master branch" in (
         target_dir / "README.md"
     ).read_text(encoding="utf-8")
 
@@ -144,6 +151,27 @@ def test_create_initializes_git_when_github_is_skipped(tmp_path):
             None,
         ),
     ]
+
+
+def test_create_renders_selected_psynet_version(tmp_path):
+    target_dir = tmp_path / "starter"
+
+    create_experiment_repository(
+        CreateOptions(
+            repository="starter",
+            directory=target_dir,
+            no_git=True,
+            generate_ec2_ssh_key=False,
+            psynet_version="13.3.0a0",
+        )
+    )
+
+    assert (
+        target_dir / "requirements.txt"
+    ).read_text(encoding="utf-8").strip() == "psynet==13.3.0a0"
+    assert "Generated PsyNet dependency: PsyNet 13.3.0a0." in (
+        target_dir / "README.md"
+    ).read_text(encoding="utf-8")
 
 
 def test_create_fails_for_non_empty_directory_without_force(tmp_path):
