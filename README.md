@@ -83,6 +83,7 @@ The generated repository includes:
 - `experiment.py` with an empty runnable PsyNet `Exp`.
 - `config.txt`, `requirements.txt`, `constraints.txt`, `test.py`, `pytest.ini`,
   and `.python-version`.
+- `Dockerfile` for PsyNet/Dallinger SSH deployment.
 - `.github/workflows/test.yml` for basic CI.
 - `.github/workflows/deploy-hotair.yml` for manually deploying a hotair debug
   run from a selected branch.
