@@ -100,11 +100,13 @@ This repository includes a manual GitHub Actions workflow,
 `Integration deploy generated experiment`, that exercises the full generated
 pipeline:
 
-1. Create a disposable PsyNet experiment repository with `psynet-github create`.
-2. Configure the generated repository secrets.
-3. Dispatch the generated repository's `deploy-hotair.yml` workflow.
-4. Watch that workflow to completion.
-5. Clean up the disposable repository and matching AWS EC2/key-pair resources.
+1. Render the latest generated PsyNet experiment template into a fixed
+   integration repository with `psynet-github create --no-git`.
+2. Configure that repository's generated workflow secrets.
+3. Push template updates to the fixed integration repository when needed.
+4. Dispatch the integration repository's `deploy-hotair.yml` workflow.
+5. Watch that workflow to completion and print its logs.
+6. Clean up matching AWS EC2/key-pair resources.
 
 Configure the required secrets from a local clone with:
 
@@ -117,12 +119,15 @@ python scripts/setup_secrets.py \
   --dns-domain example.com
 ```
 
-The stored `PSYNET_GITHUB_TEST_TOKEN` must be able to create/delete disposable
-repositories and configure secrets in those repositories. For a classic GitHub
-token, this typically means `repo`, `workflow`, and `delete_repo` scopes. If you
-do not configure `--dns-domain`, provide `dns_host` or `dns_domain` when manually
+The fixed integration repository defaults to `psynet-github-integration` under
+`PSYNET_GITHUB_TEST_OWNER` or this repository's owner. Create that repository
+once before running the workflow. The stored `PSYNET_GITHUB_TEST_TOKEN` must be
+able to push to that repository and configure secrets in it. For a classic
+GitHub token, this typically means `repo`; add `workflow` if template updates
+need to create or update `.github/workflows/deploy-hotair.yml`. If you do not
+configure `--dns-domain`, provide `dns_host` or `dns_domain` when manually
 dispatching the workflow.
 
-The `workflow` scope is required because the disposable generated repository
-contains `.github/workflows/deploy-hotair.yml`; GitHub rejects pushes that create
-or update workflow files without it.
+The `workflow` scope is required only when the integration workflow needs to
+create or update workflow files in the fixed integration repository. GitHub
+rejects pushes that create or update `.github/workflows/*` without it.
