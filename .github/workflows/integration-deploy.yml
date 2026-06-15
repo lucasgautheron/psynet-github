@@ -237,18 +237,13 @@ jobs:
         run: |
           set -euo pipefail
           full_repo="${{ steps.plan.outputs.full_repo }}"
-          previous_run_id="$(gh run list \
-            --repo "${full_repo}" \
-            --workflow deploy-hotair.yml \
-            --branch main \
-            --limit 1 \
-            --json databaseId \
-            --jq '.[0].databaseId // ""')"
-          echo "Previous generated deploy workflow run: ${previous_run_id:-none}"
+          dispatch_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Dispatch started at: ${dispatch_started_at}"
 
+          dispatch_output=""
           dispatched=false
           for attempt in {1..30}; do
-            if gh workflow run deploy-hotair.yml \
+            if dispatch_output="$(gh workflow run deploy-hotair.yml \
               --repo "${full_repo}" \
               --ref main \
               -f deploy_ref=main \
@@ -258,10 +253,12 @@ jobs:
               -f server_name="${{ steps.plan.outputs.server_name }}" \
               -f app_name="${{ steps.plan.outputs.app_name }}" \
               -f dns_host="${{ steps.plan.outputs.dns_host }}" \
-              -f ssh_key_name="${{ steps.plan.outputs.ssh_key_name }}"; then
+              -f ssh_key_name="${{ steps.plan.outputs.ssh_key_name }}" 2>&1)"; then
+              printf '%s\n' "${dispatch_output}"
               dispatched=true
               break
             fi
+            printf '%s\n' "${dispatch_output}"
             echo "Waiting for generated workflow to become dispatchable (${attempt}/30)..."
             sleep 10
           done
@@ -271,21 +268,23 @@ jobs:
             exit 1
           fi
 
-          run_id=""
-          for attempt in {1..30}; do
-            runs_json="$(gh run list \
-              --repo "${full_repo}" \
-              --workflow deploy-hotair.yml \
-              --branch main \
-              --limit 5 \
-              --json databaseId)"
-            run_id="$(RUNS_JSON="${runs_json}" PREVIOUS_RUN_ID="${previous_run_id}" python3 -c 'import json, os; previous = os.environ.get("PREVIOUS_RUN_ID", ""); print(next((run_id for run_id in (str(run.get("databaseId") or "") for run in json.loads(os.environ["RUNS_JSON"])) if run_id and run_id != previous), ""))')"
-            if [ -n "${run_id}" ] && [ "${run_id}" != "${previous_run_id}" ]; then
-              break
-            fi
-            echo "Waiting for newly dispatched generated deploy workflow run to appear (${attempt}/30)..."
-            sleep 5
-          done
+          run_id="$(DISPATCH_OUTPUT="${dispatch_output}" python3 -c 'import os, re; match = re.search(r"/actions/runs/([0-9]+)", os.environ.get("DISPATCH_OUTPUT", "")); print(match.group(1) if match else "")')"
+          if [ -z "${run_id}" ]; then
+            for attempt in {1..30}; do
+              runs_json="$(gh run list \
+                --repo "${full_repo}" \
+                --workflow deploy-hotair.yml \
+                --branch main \
+                --limit 10 \
+                --json databaseId,createdAt)"
+              run_id="$(RUNS_JSON="${runs_json}" DISPATCH_STARTED_AT="${dispatch_started_at}" python3 -c 'import datetime as dt, json, os; started = dt.datetime.fromisoformat(os.environ["DISPATCH_STARTED_AT"].replace("Z", "+00:00")); print(next((str(run.get("databaseId") or "") for run in json.loads(os.environ["RUNS_JSON"]) if dt.datetime.fromisoformat(run["createdAt"].replace("Z", "+00:00")) >= started), ""))')"
+              if [ -n "${run_id}" ]; then
+                break
+              fi
+              echo "Waiting for newly dispatched generated deploy workflow run to appear (${attempt}/30)..."
+              sleep 5
+            done
+          fi
 
           if [ -z "${run_id}" ]; then
             echo "Generated deploy workflow run did not appear." >&2
