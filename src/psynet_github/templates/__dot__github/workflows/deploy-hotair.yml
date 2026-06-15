@@ -343,7 +343,7 @@ jobs:
 
           # This debug workflow intentionally owns the configured DNS host.
           # Confirm Dallinger's overwrite prompt non-interactively.
-          yes y | dallinger ec2 provision \
+          printf 'y\n' | dallinger ec2 provision \
             --name "${{ inputs.server_name }}" \
             --region "${{ inputs.region }}" \
             --dns-host "${{ inputs.dns_host }}" \
