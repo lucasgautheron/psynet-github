@@ -48,6 +48,11 @@ generated `requirements.txt`. The bundled psynet-github script templates are
 otherwise used unchanged. Without `--psynet-version`, `requirements.txt` points
 to PsyNet's GitLab `master` branch.
 
+The bundled PsyNet-owned support files, such as `Dockerfile`, `test.py`,
+`pytest.ini`, `.gitignore`, Docker helper scripts, and the default test
+workflow, are refreshed from `psynet update-scripts` and then supplemented with
+psynet-github-specific deployment settings.
+
 Render the template locally without creating a GitHub repository:
 
 ```bash

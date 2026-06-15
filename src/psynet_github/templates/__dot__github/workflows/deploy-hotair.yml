@@ -46,6 +46,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: hotair-debug-${{ inputs.server_name }}-${{ inputs.app_name }}
@@ -92,6 +93,13 @@ jobs:
         with:
           ref: ${{ inputs.deploy_ref }}
           lfs: true
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          set -euo pipefail
+          echo "${{ github.token }}" | docker login ghcr.io \
+            --username "${{ github.actor }}" \
+            --password-stdin
 
       - name: Set up Python
         uses: actions/setup-python@v5

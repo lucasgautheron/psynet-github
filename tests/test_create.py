@@ -61,7 +61,13 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     dockerfile_text = (target_dir / "Dockerfile").read_text(encoding="utf-8")
     assert "FROM python:3.13-bookworm" in dockerfile_text
     assert "uv pip install" in dockerfile_text
+    assert "curl https://cli-assets.heroku.com/install.sh | sh" in dockerfile_text
+    assert "CMD dallinger_heroku_web" in dockerfile_text
     assert "COPY . /experiment" in dockerfile_text
+    assert (target_dir / ".dockerignore").exists()
+    assert (target_dir / "Dockertag").exists()
+    assert (target_dir / "docker" / "run").exists()
+    assert (target_dir / ".vscode" / "launch.json").exists()
     assert (target_dir / ".github" / "workflows" / "test.yml").exists()
     assert (target_dir / ".github" / "workflows" / "deploy-hotair.yml").exists()
     assert "PsyNetSkills" in (target_dir / "AGENTS.md").read_text(encoding="utf-8")
@@ -80,10 +86,17 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "ssh_key_name=starter-ec2" in deploy_defaults
     assert "ssh_private_key_path=.deploy/ssh/starter-ec2.pem" in deploy_defaults
 
+    config_text = (target_dir / "config.txt").read_text(encoding="utf-8")
+    assert "host = 0.0.0.0" in config_text
+    assert "docker_image_base_name = ghcr.io/owner/starter/psynet-experiment-images" in config_text
+    assert "docker_volumes = ${HOME}/psynet-data/assets:/psynet-data/assets" in config_text
+
     deploy_workflow = (
         target_dir / ".github" / "workflows" / "deploy-hotair.yml"
     ).read_text(encoding="utf-8")
     assert "deploy_ref" in deploy_workflow
+    assert "packages: write" in deploy_workflow
+    assert "docker login ghcr.io" in deploy_workflow
     assert "image: redis:7" in deploy_workflow
     assert "6379:6379" in deploy_workflow
     assert "Verify Redis is available" in deploy_workflow

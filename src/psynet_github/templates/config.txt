@@ -7,6 +7,11 @@ organization_name = PsyNet experiment
 recruiter = generic
 currency = $
 wage_per_hour = 12.0
+host = 0.0.0.0
+
+# Required for PsyNet/Dallinger Docker SSH launches.
+docker_image_base_name = ghcr.io/{{repo_full_name_lower}}/psynet-experiment-images
+docker_volumes = ${HOME}/psynet-data/assets:/psynet-data/assets
 
 [Prolific]
 # recruiter = prolific
