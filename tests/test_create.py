@@ -132,7 +132,7 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "dallinger docker-ssh servers add" in deploy_workflow
     assert '--host "${{ inputs.dns_host }}"' in deploy_workflow
     assert "--user ubuntu" in deploy_workflow
-    assert "psynet destroy ssh" in deploy_workflow
+    assert "printf 'y\\n' | psynet destroy ssh" in deploy_workflow
     assert "psynet debug ssh" in deploy_workflow
     assert "Dallinger's Docker-SSH path calls ssh-add internally" in deploy_workflow
     assert "SKIP_CHECK_PSYNET_VERSION_REQUIREMENT" in deploy_workflow
