@@ -13,6 +13,9 @@ def test_integration_workflow_exercises_generated_deploy_pipeline():
     assert 'git config --global user.name "psynet-github integration"' in text
     assert "psynet-github-integration@users.noreply.github.com" in text
     assert "gh auth setup-git" in text
+    assert "Ensure and clone fixed integration repository" in text
+    assert "gh repo create" in text
+    assert "Fixed psynet-github integration test repository" in text
     assert "psynet-github create" in text
     assert "--no-git" in text
     assert "Configure generated repository secrets" in text
