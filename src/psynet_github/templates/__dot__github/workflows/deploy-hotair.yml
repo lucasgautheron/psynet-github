@@ -475,6 +475,11 @@ jobs:
           set -euo pipefail
           source .venv/bin/activate
 
+          # Dallinger's Docker-SSH path calls ssh-add internally, so the agent
+          # must be active in this same shell step.
+          eval "$(ssh-agent -s)"
+          ssh-add "${HOME}/.ssh/${{ inputs.ssh_key_name }}.pem"
+
           psynet debug ssh \
             --app "${{ inputs.app_name }}" \
             --dns-host "${{ inputs.dns_host }}" \

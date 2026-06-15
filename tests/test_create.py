@@ -134,6 +134,7 @@ def test_create_renders_template_without_git_or_github(tmp_path):
     assert "--user ubuntu" in deploy_workflow
     assert "psynet destroy ssh" in deploy_workflow
     assert "psynet debug ssh" in deploy_workflow
+    assert "Dallinger's Docker-SSH path calls ssh-add internally" in deploy_workflow
     assert "SKIP_CHECK_PSYNET_VERSION_REQUIREMENT" in deploy_workflow
     assert "SKIP_VERSION_CHECK" in deploy_workflow
     assert "Configure hotair recruiter" in deploy_workflow
