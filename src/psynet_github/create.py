@@ -4,6 +4,8 @@ import configparser
 import re
 import shutil
 import subprocess
+import sys
+import tempfile
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
@@ -79,6 +81,7 @@ class CreateResult:
     pushed_to_github: bool
     configured_secrets: tuple[str, ...] = ()
     ec2_ssh_private_key_path: Path | None = None
+    updated_psynet_scripts: bool = False
 
 
 def create_experiment_repository(
@@ -114,6 +117,17 @@ def create_experiment_repository(
         },
         force=options.force,
     )
+    updated_psynet_scripts = False
+
+    if options.psynet_version and options.psynet_version.strip():
+        update_psynet_scripts_for_version(
+            target_dir,
+            options.psynet_version,
+            command_runner,
+        )
+        updated_psynet_scripts = True
+
+    ensure_generated_gitignore_entries(target_dir)
 
     initialized_git = False
     pushed_to_github = False
@@ -153,6 +167,7 @@ def create_experiment_repository(
         pushed_to_github=pushed_to_github,
         configured_secrets=configured_secrets,
         ec2_ssh_private_key_path=ec2_ssh_private_key_path,
+        updated_psynet_scripts=updated_psynet_scripts,
     )
 
 
@@ -270,6 +285,43 @@ def psynet_version_description(version: str | None) -> str:
     if version is None or not version.strip():
         return "PsyNet from the GitLab master branch"
     return f"PsyNet {version.strip()}"
+
+
+def update_psynet_scripts_for_version(
+    target_dir: Path,
+    version: str,
+    runner: CommandRunner,
+) -> None:
+    """Run `psynet update-scripts` from a temporary env using the selected version."""
+
+    with tempfile.TemporaryDirectory(prefix="psynet-github-scripts-") as temp_dir:
+        venv_dir = Path(temp_dir) / "venv"
+        python_bin = venv_dir / "bin" / "python"
+        psynet_bin = venv_dir / "bin" / "psynet"
+
+        runner([sys.executable, "-m", "venv", str(venv_dir)], None, None)
+        runner([str(python_bin), "-m", "pip", "install", "--upgrade", "pip", "wheel"], None, None)
+        runner([str(python_bin), "-m", "pip", "install", psynet_requirement(version)], None, None)
+        runner([str(psynet_bin), "update-scripts"], target_dir, None)
+
+
+def ensure_generated_gitignore_entries(target_dir: Path) -> None:
+    """Preserve psynet-github-specific ignore rules after PsyNet script updates."""
+
+    gitignore_path = target_dir / ".gitignore"
+    existing = gitignore_path.read_text(encoding="utf-8") if gitignore_path.exists() else ""
+    entries = [".deploy/", "source_code.zip"]
+    missing = [entry for entry in entries if entry not in existing.splitlines()]
+    if not missing:
+        return
+
+    text = existing.rstrip()
+    if text:
+        text += "\n"
+    text += "\n# psynet-github generated local artifacts\n"
+    text += "\n".join(missing)
+    text += "\n"
+    gitignore_path.write_text(text, encoding="utf-8")
 
 
 def default_ec2_ssh_key_name(repository: RepositorySpec) -> str:
