@@ -5,9 +5,8 @@ Run this from a local clone after authenticating the GitHub CLI:
 
     python scripts/setup_secrets.py --repo OWNER/psynet-github --use-gh-token
 
-The GitHub token stored as PSYNET_GITHUB_TEST_TOKEN must be able to create and
-delete disposable repositories and configure repository secrets in those
-repositories.
+The GitHub token stored as PSYNET_GITHUB_TEST_TOKEN must be able to update the
+fixed integration repository and configure repository secrets in that repository.
 """
 
 from __future__ import annotations
@@ -31,7 +30,7 @@ def main() -> int:
         profile=args.aws_profile,
     )
     github_token = resolve_github_token(args)
-    validate_github_token_for_workflow_push(github_token, skip=args.skip_token_scope_check)
+    warn_if_token_lacks_workflow_scope(github_token, skip=args.skip_token_scope_check)
 
     set_secret(repo, "PSYNET_GITHUB_TEST_TOKEN", github_token)
     set_secret(repo, "AWS_ACCESS_KEY_ID", aws_credentials["AWS_ACCESS_KEY_ID"])
@@ -99,7 +98,8 @@ def parse_args() -> argparse.Namespace:
         "--skip-token-scope-check",
         action="store_true",
         help=(
-            "Skip checking whether the token can push workflow files. Use only "
+            "Skip warning when the token does not advertise workflow scope. Use "
+            "only "
             "for fine-grained tokens or GitHub App tokens you have already verified."
         ),
     )
@@ -193,7 +193,7 @@ def resolve_github_token(args: argparse.Namespace) -> str:
     return token
 
 
-def validate_github_token_for_workflow_push(token: str, *, skip: bool = False) -> None:
+def warn_if_token_lacks_workflow_scope(token: str, *, skip: bool = False) -> None:
     if skip:
         return
 
@@ -208,7 +208,8 @@ def validate_github_token_for_workflow_push(token: str, *, skip: bool = False) -
         with urlopen(request, timeout=20) as response:
             scopes = response.headers.get("X-OAuth-Scopes", "")
     except URLError as exc:
-        raise SystemExit(f"Could not validate GitHub token scopes: {exc}") from exc
+        print(f"Warning: could not validate GitHub token scopes: {exc}", file=sys.stderr)
+        return
 
     if not scopes:
         print(
@@ -219,12 +220,14 @@ def validate_github_token_for_workflow_push(token: str, *, skip: bool = False) -
 
     parsed_scopes = parse_oauth_scopes(scopes)
     if "workflow" not in parsed_scopes:
-        raise SystemExit(
-            "GitHub token is missing the classic-token 'workflow' scope. "
+        print(
+            "Warning: GitHub token is missing the classic-token 'workflow' scope. "
             "GitHub rejects pushes that create or update .github/workflows/* "
             "without this scope. Run:\n\n"
             "  gh auth refresh -s workflow\n\n"
-            "Then rerun scripts/setup_secrets.py."
+            "Then rerun scripts/setup_secrets.py if the integration repository's "
+            "workflow files need to be updated.",
+            file=sys.stderr,
         )
 
 
