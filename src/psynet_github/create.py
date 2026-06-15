@@ -25,6 +25,9 @@ DASHBOARD_PASSWORD_SECRET_NAME = "DALLINGER_DASHBOARD_PASSWORD"
 DEFAULT_DASHBOARD_USER = "admin"
 DEFAULT_DASHBOARD_PASSWORD = "admin"
 DEFAULT_PSYNET_REQUIREMENT = "psynet@git+https://gitlab.com/PsyNetDev/PsyNet@master#egg=psynet"
+PSYNET_GITHUB_SCRIPT_TEMPLATES = (
+    ("__dot__github", "workflows", "deploy-hotair.yml"),
+)
 
 
 class CreateError(RuntimeError):
@@ -79,6 +82,14 @@ class CreateResult:
     pushed_to_github: bool
     configured_secrets: tuple[str, ...] = ()
     ec2_ssh_private_key_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class UpdateScriptsResult:
+    """Information about files updated by `psynet-github update-scripts`."""
+
+    directory: Path
+    updated_files: tuple[Path, ...]
 
 
 def create_experiment_repository(
@@ -154,6 +165,51 @@ def create_experiment_repository(
         pushed_to_github=pushed_to_github,
         configured_secrets=configured_secrets,
         ec2_ssh_private_key_path=ec2_ssh_private_key_path,
+    )
+
+
+def update_scripts(
+    directory: Path | None = None,
+    *,
+    repo_name: str | None = None,
+    default_branch: str = "main",
+) -> UpdateScriptsResult:
+    """Update psynet-github-managed support files in an existing experiment.
+
+    This intentionally does not update PsyNet-owned or experiment-authored files
+    such as requirements.txt, config.txt, Dockerfile, test.py, or experiment.py.
+    """
+
+    target_dir = (directory or Path.cwd()).expanduser().resolve()
+    if not target_dir.is_dir():
+        raise CreateError(f"Target directory does not exist: {target_dir}")
+
+    name = repo_name or target_dir.name
+    validate_github_component(name, "repository name")
+    context = {
+        "repo_name": name,
+        "repo_full_name": name,
+        "repo_full_name_lower": name.lower(),
+        "project_title": humanize_repo_name(name),
+        "description": "A starter PsyNet experiment created with psynet-github.",
+        "default_branch": default_branch,
+        "psynet_requirement": DEFAULT_PSYNET_REQUIREMENT,
+        "psynet_version_description": psynet_version_description(None),
+    }
+
+    templates_root = resources.files("psynet_github").joinpath("templates")
+    updated_files = []
+    for relative_parts in PSYNET_GITHUB_SCRIPT_TEMPLATES:
+        source_path = templates_root.joinpath(*relative_parts)
+        destination_path = target_dir.joinpath(*decode_template_parts(relative_parts))
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        text = source_path.read_text(encoding="utf-8")
+        destination_path.write_text(replace_tokens(text, context), encoding="utf-8")
+        updated_files.append(destination_path)
+
+    return UpdateScriptsResult(
+        directory=target_dir,
+        updated_files=tuple(updated_files),
     )
 
 

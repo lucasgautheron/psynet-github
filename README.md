@@ -59,6 +59,18 @@ Render the template locally without creating a GitHub repository:
 psynet-github create my-psynet-experiment --no-github
 ```
 
+Update psynet-github-managed support files in an existing experiment directory:
+
+```bash
+cd my-psynet-experiment
+psynet-github update-scripts
+```
+
+`update-scripts` is intentionally narrow: it updates psynet-github-managed files
+such as `.github/workflows/deploy-hotair.yml`, but does not overwrite
+experiment/PsyNet files such as `requirements.txt`, `config.txt`,
+`experiment.py`, `Dockerfile`, `test.py`, or `.gitignore`.
+
 Create the repository and copy AWS credentials from `~/.aws/credentials` into
 GitHub Actions secrets:
 

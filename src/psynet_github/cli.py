@@ -12,6 +12,7 @@ from .create import (
     CreateError,
     CreateOptions,
     create_experiment_repository,
+    update_scripts,
 )
 
 
@@ -137,6 +138,26 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     create_parser.set_defaults(func=run_create)
+
+    update_parser = subparsers.add_parser(
+        "update-scripts",
+        help="Update psynet-github-managed support files in the active experiment.",
+    )
+    update_parser.add_argument(
+        "--directory",
+        type=Path,
+        help="Experiment directory to update. Defaults to the current directory.",
+    )
+    update_parser.add_argument(
+        "--repo-name",
+        help="Repository name used for workflow defaults. Defaults to the directory name.",
+    )
+    update_parser.add_argument(
+        "--default-branch",
+        default="main",
+        help="Default branch name for generated workflow defaults. Defaults to main.",
+    )
+    update_parser.set_defaults(func=run_update_scripts)
     return parser
 
 
@@ -177,6 +198,18 @@ def run_create(args: argparse.Namespace) -> int:
             print(f"Configured GitHub Actions secrets: {names}.")
     else:
         print("Skipped GitHub repository creation.")
+    return 0
+
+
+def run_update_scripts(args: argparse.Namespace) -> int:
+    result = update_scripts(
+        args.directory,
+        repo_name=args.repo_name,
+        default_branch=args.default_branch,
+    )
+    print(f"Updated psynet-github scripts in {result.directory}")
+    for path in result.updated_files:
+        print(path.relative_to(result.directory))
     return 0
 
 
