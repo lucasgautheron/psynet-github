@@ -105,6 +105,7 @@ def create_experiment_repository(
         context={
             "repo_name": repository.name,
             "repo_full_name": repository.full_name,
+            "repo_full_name_lower": repository.full_name.lower(),
             "project_title": humanize_repo_name(repository.name),
             "description": options.description
             or "A starter PsyNet experiment created with psynet-github.",

@@ -57,6 +57,8 @@ for AWS:
 `psynet-github create` generates a unique OpenSSH Ed25519 EC2 SSH keypair under
 `.deploy/ssh/` and, when it creates the GitHub repository, copies the private
 key into the `EC2_SSH_PRIVATE_KEY` GitHub Actions secret.
+The generated Docker deployment configuration uses GitHub Container Registry at
+`ghcr.io/{{repo_full_name_lower}}/psynet-experiment-images`.
 It also configures `DALLINGER_DASHBOARD_USER` and
 `DALLINGER_DASHBOARD_PASSWORD` as GitHub Actions secrets, defaulting to
 `admin` / `admin`.
